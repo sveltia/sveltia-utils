@@ -1,0 +1,17 @@
+useTabs: false
+singleQuote: true
+trailingComma: all
+printWidth: 100
+plugins:
+  - prettier-plugin-svelte
+overrides:
+  - files:
+      - "*.css"
+      - "*.scss"
+      - "*.yaml"
+    options:
+      singleQuote: false
+  - files:
+      - "*.md"
+    options:
+      proseWrap: never

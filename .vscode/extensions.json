@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "github.vscode-github-actions",
+    "dbaeumer.vscode-eslint",
+    "editorconfig.editorconfig",
+    "streetsidesoftware.code-spell-checker",
+    "esbenp.prettier-vscode",
+    "stylelint.vscode-stylelint",
+    "svelte.svelte-vscode"
+  ]
+}

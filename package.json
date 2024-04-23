@@ -1,0 +1,128 @@
+{
+  "name": "@sveltia/utils",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "vite dev",
+    "build": "svelte-kit sync && svelte-package -o package",
+    "build:watch": "svelte-kit sync && svelte-package -o package --watch",
+    "preview": "vite preview",
+    "prepublishOnly": "npm run build",
+    "format": "prettier --plugin prettier-plugin-svelte --write .",
+    "lint": "npm-run-all lint:*",
+    "lint:cspell": "cspell --no-progress",
+    "lint:svelte": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
+    "lint:prettier": "prettier --check --plugin prettier-plugin-svelte .",
+    "lint:eslint": "eslint .",
+    "lint:stylelint": "stylelint '**/*.{css,scss,svelte}'",
+    "test:unit": "vitest"
+  },
+  "dependencies": {
+    "base32-encode": "^2.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^3.2.0",
+    "@sveltejs/kit": "^2.5.7",
+    "@sveltejs/package": "^2.3.1",
+    "@sveltejs/vite-plugin-svelte": "^3.1.0",
+    "cspell": "^8.7.0",
+    "eslint": "^8.57.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-jsdoc": "^48.2.3",
+    "eslint-plugin-svelte": "^2.37.0",
+    "npm-run-all": "^4.1.5",
+    "postcss": "^8.4.38",
+    "postcss-html": "^1.6.0",
+    "prettier": "^3.2.5",
+    "prettier-plugin-svelte": "^3.2.3",
+    "sass": "^1.75.0",
+    "stylelint": "^16.3.1",
+    "stylelint-config-recommended-scss": "^14.0.0",
+    "stylelint-scss": "^6.2.1",
+    "svelte-check": "^3.6.9",
+    "svelte-i18n": "^4.0.0",
+    "svelte-preprocess": "^5.1.4",
+    "tslib": "^2.6.2",
+    "vite": "^5.2.10",
+    "vitest": "^1.5.0"
+  },
+  "files": [
+    "package"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    "./crypto": {
+      "types": "./package/crypto.d.ts",
+      "default": "./package/crypto.js"
+    },
+    "./datetime": {
+      "types": "./package/datetime.d.ts",
+      "default": "./package/datetime.js"
+    },
+    "./element": {
+      "types": "./package/element.d.ts",
+      "default": "./package/element.js"
+    },
+    "./file": {
+      "types": "./package/file.d.ts",
+      "default": "./package/file.js"
+    },
+    "./indexed-db": {
+      "types": "./package/indexed-db.d.ts",
+      "default": "./package/indexed-db.js"
+    },
+    "./local-storage": {
+      "types": "./package/local-storage.d.ts",
+      "default": "./package/local-storage.js"
+    },
+    "./misc": {
+      "types": "./package/misc.d.ts",
+      "default": "./package/misc.js"
+    },
+    "./object": {
+      "types": "./package/object.d.ts",
+      "default": "./package/object.js"
+    },
+    "./string": {
+      "types": "./package/string.d.ts",
+      "default": "./package/string.js"
+    }
+  },
+  "typesVersions": {
+    ">4.0": {
+      "crypto": [
+        "./package/crypto.d.ts"
+      ],
+      "datetime": [
+        "./package/datetime.d.ts"
+      ],
+      "element": [
+        "./package/element.d.ts"
+      ],
+      "file": [
+        "./package/file.d.ts"
+      ],
+      "indexed-db": [
+        "./package/indexed-db.d.ts"
+      ],
+      "local-storage": [
+        "./package/local-storage.d.ts"
+      ],
+      "misc": [
+        "./package/misc.d.ts"
+      ],
+      "object": [
+        "./package/object.d.ts"
+      ],
+      "string": [
+        "./package/string.d.ts"
+      ]
+    }
+  }
+}
