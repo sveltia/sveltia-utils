@@ -1,6 +1,7 @@
+// @ts-ignore
 import { subtle } from 'crypto';
 import { beforeAll, describe, expect, test, vi } from 'vitest';
-import { generateUUID, getHash } from '$lib/services/utils/crypto';
+import { generateUUID, getHash } from '$lib/crypto';
 
 describe('Test generateUUID()', () => {
   beforeAll(() => {
