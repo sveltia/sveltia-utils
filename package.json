@@ -75,14 +75,6 @@
       "types": "./package/file.d.ts",
       "default": "./package/file.js"
     },
-    "./indexed-db": {
-      "types": "./package/indexed-db.d.ts",
-      "default": "./package/indexed-db.js"
-    },
-    "./local-storage": {
-      "types": "./package/local-storage.d.ts",
-      "default": "./package/local-storage.js"
-    },
     "./misc": {
       "types": "./package/misc.d.ts",
       "default": "./package/misc.js"
@@ -90,6 +82,11 @@
     "./object": {
       "types": "./package/object.d.ts",
       "default": "./package/object.js"
+    },
+    "./storage": {
+      "types": "./package/storage/index.d.ts",
+      "svelte": "./package/storage/index.js",
+      "default": "./package/storage/index.js"
     },
     "./string": {
       "types": "./package/string.d.ts",
@@ -110,17 +107,14 @@
       "file": [
         "./package/file.d.ts"
       ],
-      "indexed-db": [
-        "./package/indexed-db.d.ts"
-      ],
-      "local-storage": [
-        "./package/local-storage.d.ts"
-      ],
       "misc": [
         "./package/misc.d.ts"
       ],
       "object": [
         "./package/object.d.ts"
+      ],
+      "storage": [
+        "./package/storage/index.d.ts"
       ],
       "string": [
         "./package/string.d.ts"
