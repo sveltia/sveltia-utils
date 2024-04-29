@@ -9,6 +9,7 @@ const textFileTypes = [
   'application/rss+xml',
   'application/xhtml+xml',
   'application/xml',
+  'application/yaml', // RFC 9512
   'image/svg+xml',
 ];
 
