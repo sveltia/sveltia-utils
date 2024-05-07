@@ -108,9 +108,9 @@ export default class IndexedDB {
 
   /**
    * Save a single entry.
-   * @param {string} key - Key.
+   * @param {any} key - Key.
    * @param {any} value - Value.
-   * @returns {Promise<string>} Key.
+   * @returns {Promise<any>} Key.
    */
   async set(key, value) {
     return this.#query((store) => store.put(value, key));
@@ -118,8 +118,8 @@ export default class IndexedDB {
 
   /**
    * Save multiple entries.
-   * @param {[string, any][]} entries - Key/value pairs.
-   * @returns {Promise<string>} Key.
+   * @param {[any, any][]} entries - Key/value pairs.
+   * @returns {Promise<any>} Key.
    */
   async saveEntries(entries) {
     return this.#query((store) => {
@@ -131,7 +131,7 @@ export default class IndexedDB {
 
   /**
    * Retrieve a value by key.
-   * @param {string} key - Key.
+   * @param {any} key - Key.
    * @returns {Promise<any>} Value.
    */
   async get(key) {
@@ -140,7 +140,7 @@ export default class IndexedDB {
 
   /**
    * Retrieve all keys.
-   * @returns {Promise<string[]>} Keys.
+   * @returns {Promise<any[]>} Keys.
    */
   async keys() {
     return this.#query((store) => store.getAllKeys());
@@ -156,7 +156,7 @@ export default class IndexedDB {
 
   /**
    * Retrieve all entries.
-   * @returns {Promise<[string, any][]>} Key/value pairs.
+   * @returns {Promise<[any, any][]>} Key/value pairs.
    */
   async entries() {
     const [keys, values] = await Promise.all([this.keys(), this.values()]);
@@ -166,7 +166,7 @@ export default class IndexedDB {
 
   /**
    * Delete an entry by key.
-   * @param {string} key - Key.
+   * @param {any} key - Key.
    * @returns {Promise<void>} Result.
    */
   async delete(key) {
@@ -175,7 +175,7 @@ export default class IndexedDB {
 
   /**
    * Delete multiple entries by keys.
-   * @param {string[]} keys - Property keys.
+   * @param {any[]} keys - Property keys.
    * @returns {Promise<void>} Result.
    */
   async deleteEntries(keys) {
