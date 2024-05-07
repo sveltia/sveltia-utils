@@ -41,7 +41,7 @@ export default class IndexedDB {
    */
   async #openDatabase(version) {
     return new Promise((resolve) => {
-      const request = window.indexedDB.open(this.#databaseName, version);
+      const request = globalThis.indexedDB.open(this.#databaseName, version);
 
       request.onupgradeneeded = () => {
         request.result.createObjectStore(this.#storeName);

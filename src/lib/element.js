@@ -28,7 +28,7 @@ export const waitForVisibility = (element) => {
       }
     });
 
-    window.requestAnimationFrame(() => {
+    globalThis.requestAnimationFrame(() => {
       observer.observe(element);
     });
   });

@@ -12,7 +12,7 @@ export default class LocalStorage {
    * @throws {DOMException} When storage access is denied.
    */
   static async set(key, value) {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    globalThis.localStorage.setItem(key, JSON.stringify(value));
   }
 
   /**
@@ -22,7 +22,7 @@ export default class LocalStorage {
    * @throws {DOMException} When storage access is denied.
    */
   static async get(key) {
-    const cache = window.localStorage.getItem(key);
+    const cache = globalThis.localStorage.getItem(key);
 
     return cache ? JSON.parse(cache) : null;
   }
@@ -33,7 +33,7 @@ export default class LocalStorage {
    * @throws {DOMException} When storage access is denied.
    */
   static async delete(key) {
-    window.localStorage.removeItem(key);
+    globalThis.localStorage.removeItem(key);
   }
 
   /**
@@ -41,7 +41,7 @@ export default class LocalStorage {
    * @throws {DOMException} When storage access is denied.
    */
   static async clear() {
-    window.localStorage.clear();
+    globalThis.localStorage.clear();
   }
 
   /**
@@ -50,7 +50,7 @@ export default class LocalStorage {
    * @throws {DOMException} When storage access is denied.
    */
   static async keys() {
-    return Object.keys(window.localStorage);
+    return Object.keys(globalThis.localStorage);
   }
 
   /**
@@ -59,7 +59,7 @@ export default class LocalStorage {
    * @throws {DOMException} When storage access is denied.
    */
   static async values() {
-    return Object.values(window.localStorage).map((value) => JSON.parse(value));
+    return Object.values(globalThis.localStorage).map((value) => JSON.parse(value));
   }
 
   /**
@@ -68,6 +68,6 @@ export default class LocalStorage {
    * @throws {DOMException} When storage access is denied.
    */
   static async entries() {
-    return Object.entries(window.localStorage).map(([key, value]) => [key, JSON.parse(value)]);
+    return Object.entries(globalThis.localStorage).map(([key, value]) => [key, JSON.parse(value)]);
   }
 }
