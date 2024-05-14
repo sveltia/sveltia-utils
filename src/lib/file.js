@@ -1,4 +1,10 @@
 /**
+ * A regular expression to match a file path. Chained extensions of tarballs like `archive.tar.gz`
+ * are treated as a special case.
+ */
+const filePathRegEx = /(?:(.+?)\/)?(([^/]+?)(?:\.((?:tar\.)?[a-zA-Z0-9]+))?)$/;
+
+/**
  * List of MIME types that can be considered as plaintext.
  */
 const textFileTypes = [
@@ -19,6 +25,18 @@ const textFileTypes = [
  * @returns {boolean} Result.
  */
 export const isTextFileType = (type) => type.startsWith('text/') || textFileTypes.includes(type);
+
+/**
+ * Get information about a file path.
+ * @param {string} path - Path to be parsed.
+ * @returns {{ dirname?: string, basename: string, filename: string, extension?: string }} Result.
+ * @see https://www.php.net/manual/en/function.pathinfo.php
+ */
+export const getPathInfo = (path) => {
+  const [, dirname, basename, filename, extension] = path.match(filePathRegEx) ?? [];
+
+  return { dirname, basename, filename, extension };
+};
 
 /**
  * Scan local files in nested folders and return them in a flat array, sorted by name.
