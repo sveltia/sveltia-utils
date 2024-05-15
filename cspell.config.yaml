@@ -19,6 +19,7 @@ ignorePaths:
 words:
   - colour
   - colours
+  - deproxified
   - espree
   - jsdoc
   - nocheck
@@ -26,6 +27,7 @@ words:
   - plusplus
   - pnpm
   - postcss
+  - proxified
   - singleline
   - stylelint
   - Sveltia
