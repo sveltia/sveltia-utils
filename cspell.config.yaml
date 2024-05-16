@@ -21,6 +21,7 @@ words:
   - colours
   - deproxified
   - espree
+  - IndexedDB
   - jsdoc
   - nocheck
   - opsz
