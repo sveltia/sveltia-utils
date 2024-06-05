@@ -58,3 +58,9 @@ export const isURL = (string) => {
     return false;
   }
 };
+
+/**
+ * Compare strings for natural sorting.
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/localeCompare
+ */
+export const { compare } = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
