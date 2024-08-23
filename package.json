@@ -126,5 +126,12 @@
         "./package/string.d.ts"
       ]
     }
+  },
+  "pnpm": {
+    "auditConfig": {
+      "ignoreCves": [
+        "CVE-2024-4067"
+      ]
+    }
   }
 }
