@@ -65,6 +65,10 @@
   ],
   "exports": {
     "./package.json": "./package.json",
+    "./array": {
+      "types": "./package/array.d.ts",
+      "default": "./package/array.js"
+    },
     "./crypto": {
       "types": "./package/crypto.d.ts",
       "default": "./package/crypto.js"
@@ -101,6 +105,9 @@
   },
   "typesVersions": {
     ">4.0": {
+      "array": [
+        "./package/array.d.ts"
+      ],
       "crypto": [
         "./package/crypto.d.ts"
       ],
