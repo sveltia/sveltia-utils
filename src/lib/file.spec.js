@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getPathInfo } from '$lib/file';
+import { getPathInfo } from './file';
 
 describe('Test getPathInfo()', () => {
   test('simple', () => {

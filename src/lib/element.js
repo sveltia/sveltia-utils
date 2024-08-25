@@ -1,4 +1,4 @@
-import { generateUUID } from '$lib/crypto';
+import { generateUUID } from './crypto';
 
 /**
  * Get a random ID that can be used for elements.

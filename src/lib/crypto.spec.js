@@ -1,6 +1,6 @@
 import { subtle } from 'crypto';
 import { beforeAll, describe, expect, test, vi } from 'vitest';
-import { generateUUID, getHash } from '$lib/crypto';
+import { generateUUID, getHash } from './crypto';
 
 describe('Test generateUUID()', () => {
   beforeAll(() => {

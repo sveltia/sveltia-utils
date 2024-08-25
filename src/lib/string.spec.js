@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { compare } from '$lib/string';
+import { compare } from './string';
 
 describe('Test compare()', () => {
   test('simple', () => {
