@@ -1,5 +1,7 @@
 import base32Encode from 'base32-encode';
 
+export const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+
 /**
  * Generate a v4 UUID or its shortened version.
  * @param {'short' | 'shorter' | number} [length] - Length.
