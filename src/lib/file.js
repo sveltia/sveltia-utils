@@ -1,9 +1,16 @@
 import { uuidPattern } from './crypto';
 import { escapeRegExp } from './string';
 
-export const blobRegex = new RegExp(
-  `\\bblob:${escapeRegExp(globalThis.location.origin)}\\/${uuidPattern.source}\\b`,
-);
+/**
+ * Get a regular expression that matches a blob URL.
+ * @param {string} flags - Flags for `RegExp`.
+ * @returns {RegExp} Regular expression.
+ */
+export const getBlobRegex = (flags = '') =>
+  new RegExp(
+    `\\bblob:${escapeRegExp(globalThis.location.origin)}\\/${uuidPattern.source}\\b`,
+    flags,
+  );
 
 /**
  * A regular expression to match a file path. Chained extensions of tarballs like `archive.tar.gz`
