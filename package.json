@@ -102,6 +102,10 @@
     "./string": {
       "types": "./dist/string.d.ts",
       "default": "./dist/string.js"
+    },
+    "./typedefs": {
+      "types": "./dist/typedefs.d.ts",
+      "default": "./dist/typedefs.js"
     }
   },
   "typesVersions": {
@@ -132,6 +136,9 @@
       ],
       "string": [
         "./dist/string.d.ts"
+      ],
+      "typedefs": [
+        "./dist/typedefs.d.ts"
       ]
     }
   },

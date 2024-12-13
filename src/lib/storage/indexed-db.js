@@ -1,15 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
 
 /**
- * Arguments to be passed to `IDBObjectStore.createIndex()`.
- * @typedef {object} DatabaseIndex
- * @property {string} name Index name.
- * @property {string | string[]} keyPath Key path(s).
- * @property {IDBIndexParameters} [options] Index options.
- * @see https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/createIndex#parameters
- */
-
-/**
  * Implement a wrapper for the IndexedDB API, making it easier to use the client-side database with
  * auto-upgrades and convenient Promise methods.
  */
@@ -41,7 +32,7 @@ export default class IndexedDB {
 
   /**
    * Index options to be passed to `IDBObjectStore.createIndex()`.
-   * @type {DatabaseIndex[]}
+   * @type {import("../typedefs").DatabaseIndex[]}
    */
   #indexes = [];
 
@@ -52,7 +43,8 @@ export default class IndexedDB {
    * @param {object} [options] - Options.
    * @param {string | string[]} [options.keyPath] - Option for `createObjectStore()`.
    * @param {boolean} [options.autoIncrement] - Option for `createObjectStore()`.
-   * @param {DatabaseIndex[]} [options.indexes] - Arguments for `createIndex()`.
+   * @param {import("../typedefs").DatabaseIndex[]} [options.indexes] - Arguments for
+   * `createIndex()`.
    * @see https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase/createObjectStore
    * @see https://stackoverflow.com/questions/33852508/how-to-create-an-indexeddb-composite-key
    */
