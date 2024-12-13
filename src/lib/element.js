@@ -6,8 +6,7 @@ import { generateUUID } from './crypto';
  * @param {number} [length] - Number of characters to be used in the ID.
  * @returns {string} Generated ID.
  */
-export const generateElementId = (prefix = 'e', length = 7) =>
-  [prefix, generateUUID(length)].join('-');
+const generateElementId = (prefix = 'e', length = 7) => [prefix, generateUUID(length)].join('-');
 
 /**
  * Wait until the given element enters the viewport.
@@ -15,7 +14,7 @@ export const generateElementId = (prefix = 'e', length = 7) =>
  * @returns {void | Promise<void>} Promise to be resolved when the element becomes visible. If the
  * `element` is not available yet, `undefined` will be returned instead.
  */
-export const waitForVisibility = (element) => {
+const waitForVisibility = (element) => {
   if (!element) {
     return void 0;
   }
@@ -33,3 +32,5 @@ export const waitForVisibility = (element) => {
     });
   });
 };
+
+export { generateElementId, waitForVisibility };

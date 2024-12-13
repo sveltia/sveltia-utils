@@ -6,7 +6,7 @@ import { escapeRegExp } from './string';
  * @param {string} flags - Flags for `RegExp`.
  * @returns {RegExp} Regular expression.
  */
-export const getBlobRegex = (flags = '') =>
+const getBlobRegex = (flags = '') =>
   new RegExp(
     `\\bblob:${escapeRegExp(globalThis.location.origin)}\\/${uuidPattern.source}\\b`,
     flags,
@@ -38,7 +38,7 @@ const textFileTypes = [
  * @param {string} type - MIME type.
  * @returns {boolean} Result.
  */
-export const isTextFileType = (type) => type.startsWith('text/') || textFileTypes.includes(type);
+const isTextFileType = (type) => type.startsWith('text/') || textFileTypes.includes(type);
 
 /**
  * Get information about a file path.
@@ -46,7 +46,7 @@ export const isTextFileType = (type) => type.startsWith('text/') || textFileType
  * @returns {{ dirname?: string, basename: string, filename: string, extension?: string }} Result.
  * @see https://www.php.net/manual/en/function.pathinfo.php
  */
-export const getPathInfo = (path) => {
+const getPathInfo = (path) => {
   const [, dirname, basename, filename, extension] = path.match(filePathRegEx) ?? [];
 
   return { dirname, basename, filename, extension };
@@ -61,7 +61,7 @@ export const getPathInfo = (path) => {
  * @returns {Promise<File[]>} Files.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/DataTransferItem/webkitGetAsEntry
  */
-export const scanFiles = async ({ items }, { accept } = {}) => {
+const scanFiles = async ({ items }, { accept } = {}) => {
   const fileTypes = accept ? accept.trim().split(/,\s*/g) : [];
 
   /**
@@ -121,14 +121,14 @@ export const scanFiles = async ({ items }, { accept } = {}) => {
  * @param {File | Blob} file - File.
  * @returns {Promise<string>} Content.
  */
-export const readAsText = async (file) => (await file.text()).replace(/\r\n/g, '\n');
+const readAsText = async (file) => (await file.text()).replace(/\r\n/g, '\n');
 
 /**
  * Get the Base64 encoding of the given input.
  * @param {File | Blob | string} input - Input file or string.
  * @returns {Promise<string>} Data URL like `data:text/plain;base64,...`.
  */
-export const getDataURL = async (input) => {
+const getDataURL = async (input) => {
   const blob = typeof input === 'string' ? new Blob([input], { type: 'text/plain' }) : input;
   const reader = new FileReader();
 
@@ -149,14 +149,14 @@ export const getDataURL = async (input) => {
  * @param {File | Blob | string} input - Input file or string.
  * @returns {Promise<string>} Base64.
  */
-export const getBase64 = async (input) => (await getDataURL(input)).split(',')[1];
+const getBase64 = async (input) => (await getDataURL(input)).split(',')[1];
 
 /**
  * Save the given file locally.
  * @param {File | Blob} file - File to be saved.
  * @param {string} [name] - File name. Required if the `file` param is a `Blob`.
  */
-export const saveFile = (file, name) => {
+const saveFile = (file, name) => {
   const link = document.createElement('a');
   const blobURL = URL.createObjectURL(file);
 
@@ -166,4 +166,15 @@ export const saveFile = (file, name) => {
   link.click();
 
   URL.revokeObjectURL(blobURL);
+};
+
+export {
+  getBase64,
+  getBlobRegex,
+  getDataURL,
+  getPathInfo,
+  isTextFileType,
+  readAsText,
+  saveFile,
+  scanFiles,
 };

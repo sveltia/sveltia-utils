@@ -7,7 +7,7 @@
  * @returns {{ [key: string]: string }} Result like `{ year: '2023', month: '01', day: '23', ... }`.
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat/formatToParts
  */
-export const getDateTimeParts = ({ date = new Date(), timeZone = undefined } = {}) => {
+const getDateTimeParts = ({ date = new Date(), timeZone = undefined } = {}) => {
   /** @type {Intl.DateTimeFormatOptions} */
   const options = {
     year: 'numeric',
@@ -26,3 +26,5 @@ export const getDateTimeParts = ({ date = new Date(), timeZone = undefined } = {
       .map(({ type, value }) => [type, type === 'hour' && value === '24' ? '00' : value]),
   );
 };
+
+export { getDateTimeParts };

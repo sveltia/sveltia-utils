@@ -5,7 +5,7 @@ import { isObject } from './object';
  * @param {any} input - Input, probably an array.
  * @returns {boolean} Result.
  */
-export const isObjectArray = (input) =>
+const isObjectArray = (input) =>
   Array.isArray(input) && /** @type {any[]} */ (input).every((item) => isObject(item));
 
 /**
@@ -13,4 +13,6 @@ export const isObjectArray = (input) =>
  * @param {any[]} array - Original array with primitive values.
  * @returns {any[]} - Array without duplicates.
  */
-export const unique = (array) => [...new Set(array)];
+const unique = (array) => [...new Set(array)];
+
+export { isObjectArray, unique };

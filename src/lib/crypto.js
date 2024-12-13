@@ -1,6 +1,9 @@
 import base32Encode from 'base32-encode';
 
-export const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+/**
+ * Regular expression that matches a UUID.
+ */
+const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 
 /**
  * Generate a v4 UUID or its shortened version.
@@ -8,7 +11,7 @@ export const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
  * @returns {string} UUID like `10f95178-c983-4cfe-91d6-4e62c8c7e582`.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
  */
-export const generateUUID = (length) => {
+const generateUUID = (length) => {
   const uuid = /** @type {string} */ globalThis.crypto.randomUUID();
 
   // Last 12 characters
@@ -33,7 +36,7 @@ export const generateUUID = (length) => {
  * Generate a random ID.
  * @returns {string} Generated 26-character string.
  */
-export const generateRandomId = () => {
+const generateRandomId = () => {
   const hex = generateUUID().replaceAll('-', '');
   const { buffer } = new Uint8Array((hex.match(/../g) ?? []).map((h) => parseInt(h, 16)));
 
@@ -49,7 +52,7 @@ export const generateRandomId = () => {
  * @returns {Promise<string>} Hash.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
  */
-export const getHash = async (input, { algorithm = 'SHA-1', format = 'hex' } = {}) => {
+const getHash = async (input, { algorithm = 'SHA-1', format = 'hex' } = {}) => {
   const data =
     typeof input === 'string' ? new TextEncoder().encode(input) : await input.arrayBuffer();
 
@@ -61,3 +64,5 @@ export const getHash = async (input, { algorithm = 'SHA-1', format = 'hex' } = {
 
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 };
+
+export { generateRandomId, generateUUID, getHash, uuidPattern };
