@@ -65,16 +65,72 @@
     "!**/*.spec.d.ts"
   ],
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "svelte": "./dist/index.js",
-      "default": "./dist/index.js"
+    "./array": {
+      "types": "./dist/array.d.ts",
+      "default": "./dist/array.js"
+    },
+    "./crypto": {
+      "types": "./dist/crypto.d.ts",
+      "default": "./dist/crypto.js"
+    },
+    "./datetime": {
+      "types": "./dist/datetime.d.ts",
+      "default": "./dist/datetime.js"
+    },
+    "./element": {
+      "types": "./dist/element.d.ts",
+      "default": "./dist/element.js"
+    },
+    "./file": {
+      "types": "./dist/file.d.ts",
+      "default": "./dist/file.js"
+    },
+    "./misc": {
+      "types": "./dist/misc.d.ts",
+      "default": "./dist/misc.js"
+    },
+    "./object": {
+      "types": "./dist/object.d.ts",
+      "default": "./dist/object.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/index.d.ts",
+      "svelte": "./dist/storage/index.js",
+      "default": "./dist/storage/index.js"
+    },
+    "./string": {
+      "types": "./dist/string.d.ts",
+      "default": "./dist/string.js"
     }
   },
   "typesVersions": {
     ">4.0": {
-      "index": [
-        "./dist/index.d.ts"
+      "array": [
+        "./dist/array.d.ts"
+      ],
+      "crypto": [
+        "./dist/crypto.d.ts"
+      ],
+      "datetime": [
+        "./dist/datetime.d.ts"
+      ],
+      "element": [
+        "./dist/element.d.ts"
+      ],
+      "file": [
+        "./dist/file.d.ts"
+      ],
+      "misc": [
+        "./dist/misc.d.ts"
+      ],
+      "object": [
+        "./dist/object.d.ts"
+      ],
+      "storage": [
+        "./dist/storage/index.d.ts"
+      ],
+      "string": [
+        "./dist/string.d.ts"
       ]
     }
   },
