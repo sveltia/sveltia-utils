@@ -53,6 +53,20 @@ const getPathInfo = (path) => {
 };
 
 /**
+ * Encode the given (partial) file path or file name. Since {@link encodeURIComponent} encodes
+ * slashes, we need to split and join.
+ * @param {string} path - Original path.
+ * @returns {string} Encoded path.
+ */
+const encodeFilePath = (path) => path.split('/').map(encodeURIComponent).join('/');
+/**
+ * Encode the given (partial) file path or file name.
+ * @param {string} path - Original path.
+ * @returns {string} Decoded path.
+ */
+const decodeFilePath = (path) => decodeURIComponent(path);
+
+/**
  * Scan local files in nested folders and return them in a flat array, sorted by name.
  * @param {DataTransfer} dataTransfer - From `drop` event.
  * @param {object} [options] - Options.
@@ -169,6 +183,8 @@ const saveFile = (file, name) => {
 };
 
 export {
+  decodeFilePath,
+  encodeFilePath,
   getBase64,
   getBlobRegex,
   getDataURL,
