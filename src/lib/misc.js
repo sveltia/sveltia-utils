@@ -7,7 +7,7 @@
 const sleep = (ms = 0) =>
   new Promise((resolve) => {
     globalThis.setTimeout(() => {
-      resolve(void 0);
+      resolve(undefined);
     }, ms);
   });
 

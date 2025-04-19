@@ -16,14 +16,14 @@ const generateElementId = (prefix = 'e', length = 7) => [prefix, generateUUID(le
  */
 const waitForVisibility = (element) => {
   if (!element) {
-    return void 0;
+    return undefined;
   }
 
   return new Promise((resolve) => {
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
         observer.disconnect();
-        resolve(void 0);
+        resolve(undefined);
       }
     });
 

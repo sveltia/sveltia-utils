@@ -141,7 +141,7 @@ export default class IndexedDB {
 
     return new Promise((resolve) => {
       transaction.oncomplete = () => {
-        resolve(void 0);
+        resolve(undefined);
       };
     });
   }
