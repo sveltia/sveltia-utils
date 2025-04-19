@@ -4,7 +4,7 @@
  * @param {number} [ms] - Milliseconds to wait.
  * @returns {Promise<void>} Nothing.
  */
-const sleep = (ms = 1000) =>
+const sleep = (ms = 0) =>
   new Promise((resolve) => {
     globalThis.setTimeout(() => {
       resolve(void 0);
