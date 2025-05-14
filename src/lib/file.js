@@ -67,6 +67,33 @@ const encodeFilePath = (path) => path.split('/').map(encodeURIComponent).join('/
 const decodeFilePath = (path) => decodeURIComponent(path);
 
 /**
+ * Check if the given file matches one of the unique file type specifiers.
+ * @param {File} file - File to be evaluated.
+ * @param {string[]} specifiers - List of file type specifiers.
+ * @returns {boolean} Result.
+ * @see https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/accept
+ */
+const isValidFileType = (file, specifiers) => {
+  if (!specifiers.length) {
+    return true;
+  }
+
+  return specifiers.some((specifier) => {
+    if (specifier.startsWith('.')) {
+      return file.name.endsWith(specifier);
+    }
+
+    const [type, subtype] = specifier.split('/');
+
+    if (subtype === '*') {
+      return file.type.split('/')[0] === type;
+    }
+
+    return file.type === specifier;
+  });
+};
+
+/**
  * Scan local files in nested folders and return them in a flat array, sorted by name.
  * @param {DataTransfer} dataTransfer - From `drop` event.
  * @param {object} [options] - Options.
@@ -76,7 +103,7 @@ const decodeFilePath = (path) => decodeURIComponent(path);
  * @see https://developer.mozilla.org/en-US/docs/Web/API/DataTransferItem/webkitGetAsEntry
  */
 const scanFiles = async ({ items }, { accept } = {}) => {
-  const fileTypes = accept ? accept.trim().split(/,\s*/g) : [];
+  const specifiers = accept ? accept.trim().split(/,\s*/) : [];
 
   /**
    * Read files recursively from the filesystem.
@@ -92,15 +119,7 @@ const scanFiles = async ({ items }, { accept } = {}) => {
       } else if (entry.isFile) {
         /** @type {FileSystemFileEntry} */ (entry).file(
           (file) => {
-            const isValidType =
-              !fileTypes.length ||
-              fileTypes.some((mimeType) => {
-                const [type, subtype] = mimeType.split('/');
-
-                return subtype === '*' ? file.type.split('/')[0] === type : file.type === mimeType;
-              });
-
-            resolve(isValidType ? file : null);
+            resolve(isValidFileType(file, specifiers) ? file : null);
           },
           // Skip inaccessible files
           () => {
@@ -190,6 +209,7 @@ export {
   getDataURL,
   getPathInfo,
   isTextFileType,
+  isValidFileType,
   readAsText,
   saveFile,
   scanFiles,

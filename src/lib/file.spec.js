@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { decodeFilePath, encodeFilePath, getPathInfo } from './file';
+import { decodeFilePath, encodeFilePath, getPathInfo, isValidFileType } from './file';
 
 describe('Test encodeFilePath()', () => {
   test('ASCII only', () => {
@@ -30,6 +30,42 @@ describe('Test decodeFilePath()', () => {
     expect(
       decodeFilePath('%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E3%83%BC/%E7%94%BB%E5%83%8F.jpg'),
     ).toEqual('フォルダー/画像.jpg');
+  });
+});
+
+describe('Text isValidFileType()', () => {
+  test('image', () => {
+    const file = new File([], 'image.png', { type: 'image/png' });
+
+    // Valid cases
+    expect(isValidFileType(file, [])).toBe(true);
+    expect(isValidFileType(file, ['.png'])).toBe(true);
+    expect(isValidFileType(file, ['.png', '.webp'])).toBe(true);
+    expect(isValidFileType(file, ['image/*'])).toBe(true);
+    expect(isValidFileType(file, ['image/png'])).toBe(true);
+    expect(isValidFileType(file, ['image/png', 'image/webp'])).toBe(true);
+
+    // Invalid cases
+    expect(isValidFileType(file, ['.jpeg', '.webp'])).toBe(false);
+    expect(isValidFileType(file, ['image/jpeg'])).toBe(false);
+    expect(isValidFileType(file, ['text/*'])).toBe(false);
+  });
+
+  test('Markdown', () => {
+    const file = new File([], 'README.md', { type: 'text/markdown' });
+
+    // Valid cases
+    expect(isValidFileType(file, [])).toBe(true);
+    expect(isValidFileType(file, ['.md'])).toBe(true);
+    expect(isValidFileType(file, ['.md', '.yml', '.yaml'])).toBe(true);
+    expect(isValidFileType(file, ['text/*'])).toBe(true);
+    expect(isValidFileType(file, ['text/markdown'])).toBe(true);
+
+    // Invalid cases
+    expect(isValidFileType(file, ['.pdf'])).toBe(false);
+    expect(isValidFileType(file, ['image/png'])).toBe(false);
+    expect(isValidFileType(file, ['image/*'])).toBe(false);
+    expect(isValidFileType(file, ['text/plain', 'application/yaml'])).toBe(false);
   });
 });
 
