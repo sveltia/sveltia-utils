@@ -4,5 +4,6 @@
     "checkJs": true,
     "strict": true,
     "types": ["node", "vite/client"]
-  }
+  },
+  "include": ["src/**/*"]
 }

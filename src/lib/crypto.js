@@ -53,10 +53,61 @@ const generateRandomId = () => {
  * @see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
  */
 const getHash = async (input, { algorithm = 'SHA-1', format = 'hex' } = {}) => {
-  const data =
-    typeof input === 'string' ? new TextEncoder().encode(input) : await input.arrayBuffer();
+  let data;
 
-  const digest = await globalThis.crypto.subtle.digest(algorithm, data);
+  if (typeof input === 'string') {
+    const uint8Array = new TextEncoder().encode(input);
+
+    data = uint8Array.buffer.slice(
+      uint8Array.byteOffset,
+      uint8Array.byteOffset + uint8Array.byteLength,
+    );
+  } else if (input && typeof input.arrayBuffer === 'function') {
+    // Use arrayBuffer method if available (modern browsers)
+    data = await input.arrayBuffer();
+  } else if (input && typeof input.size === 'number' && typeof input.type === 'string') {
+    // This is likely a Blob or File object without arrayBuffer method (jsdom)
+    data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      /**
+       * Handle successful file read.
+       */
+      reader.onload = function onLoad() {
+        resolve(reader.result);
+      };
+
+      /**
+       * Handle file read error.
+       */
+      reader.onerror = function onError() {
+        reject(new Error('Failed to read blob as ArrayBuffer'));
+      };
+
+      reader.readAsArrayBuffer(input);
+    });
+  } else if (input && input.constructor && input.constructor.name === 'ArrayBuffer') {
+    // Handle ArrayBuffer directly
+    data = input;
+  } else if (
+    input &&
+    // @ts-expect-error - TypedArray properties
+    input.buffer &&
+    // @ts-expect-error - TypedArray properties
+    typeof input.byteLength === 'number'
+  ) {
+    // Handle TypedArray - convert to ArrayBuffer
+    // @ts-expect-error - TypedArray properties
+    data = input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength);
+  } else {
+    throw new Error('Unsupported input type for getHash');
+  }
+
+  // Workaround for jsdom: Use Uint8Array instead of ArrayBuffer
+  // jsdom's crypto.subtle.digest has issues with ArrayBuffer instanceof checks
+  // but works correctly with Uint8Array (which is also a valid input type)
+  const finalData = new Uint8Array(data);
+  const digest = await globalThis.crypto.subtle.digest(algorithm, finalData);
 
   if (format === 'binary') {
     return Array.from(new Uint8Array(digest), (b) => String.fromCharCode(b)).join('');

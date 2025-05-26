@@ -1,5 +1,14 @@
+// cspell:disable
+
 import { describe, expect, test } from 'vitest';
-import { decodeFilePath, encodeFilePath, getPathInfo, isValidFileType } from './file';
+import {
+  decodeBase64,
+  decodeFilePath,
+  encodeBase64,
+  encodeFilePath,
+  getPathInfo,
+  isValidFileType,
+} from './file';
 
 describe('Test encodeFilePath()', () => {
   test('ASCII only', () => {
@@ -164,5 +173,120 @@ describe('Test getPathInfo()', () => {
       filename: '.htaccess',
       extension: undefined,
     });
+  });
+});
+
+describe('Test encodeBase64()', () => {
+  test('string input', async () => {
+    expect(await encodeBase64('Hello, World!')).toEqual('SGVsbG8sIFdvcmxkIQ==');
+    expect(await encodeBase64('')).toEqual('');
+    expect(await encodeBase64('A')).toEqual('QQ==');
+    expect(await encodeBase64('AB')).toEqual('QUI=');
+    expect(await encodeBase64('ABC')).toEqual('QUJD');
+  });
+
+  test('Unicode string', async () => {
+    expect(await encodeBase64('こんにちは')).toEqual('44GT44KT44Gr44Gh44Gv');
+    expect(await encodeBase64('🎉🎊')).toEqual('8J+OifCfjoo=');
+    expect(await encodeBase64('Café')).toEqual('Q2Fmw6k=');
+  });
+
+  test('Blob input', async () => {
+    const blob = new Blob(['Hello, World!'], { type: 'text/plain' });
+
+    expect(await encodeBase64(blob)).toEqual('SGVsbG8sIFdvcmxkIQ==');
+  });
+
+  test('File input', async () => {
+    const file = new File(['Hello, World!'], 'test.txt', { type: 'text/plain' });
+
+    expect(await encodeBase64(file)).toEqual('SGVsbG8sIFdvcmxkIQ==');
+  });
+
+  test('Binary content', async () => {
+    // Create a blob with binary data
+    const uint8Array = new Uint8Array([0, 1, 2, 3, 255, 254, 253]);
+    const blob = new Blob([uint8Array]);
+    const result = await encodeBase64(blob);
+
+    // This should encode the binary data properly
+    expect(result).toEqual('AAECA//+/Q==');
+  });
+});
+
+describe('Test decodeBase64()', () => {
+  test('basic strings', async () => {
+    expect(await decodeBase64('SGVsbG8sIFdvcmxkIQ==')).toEqual('Hello, World!');
+    expect(await decodeBase64('')).toEqual('');
+    expect(await decodeBase64('QQ==')).toEqual('A');
+    expect(await decodeBase64('QUI=')).toEqual('AB');
+    expect(await decodeBase64('QUJD')).toEqual('ABC');
+  });
+
+  test('Unicode strings', async () => {
+    expect(await decodeBase64('44GT44KT44Gr44Gh44Gv')).toEqual('こんにちは');
+    expect(await decodeBase64('8J+OifCfjoo=')).toEqual('🎉🎊');
+    expect(await decodeBase64('Q2Fmw6k=')).toEqual('Café');
+  });
+
+  test('special characters', async () => {
+    expect(await decodeBase64('IUAjJCVeJiooKQ==')).toEqual('!@#$%^&*()');
+    expect(await decodeBase64('PD94bWwgdmVyc2lvbj0iMS4wIj8+')).toEqual('<?xml version="1.0"?>');
+  });
+
+  test('multiline content', async () => {
+    const multilineText = 'Line 1\nLine 2\nLine 3';
+    const encoded = 'TGluZSAxCkxpbmUgMgpMaW5lIDM=';
+
+    expect(await decodeBase64(encoded)).toEqual(multilineText);
+  });
+
+  test('JSON content', async () => {
+    const jsonString = '{"name":"John","age":30}';
+    const encoded = 'eyJuYW1lIjoiSm9obiIsImFnZSI6MzB9';
+
+    expect(await decodeBase64(encoded)).toEqual(jsonString);
+  });
+});
+
+describe('Test encodeBase64() and decodeBase64() roundtrip', () => {
+  test('string roundtrip', async () => {
+    const original = 'Hello, 世界! 🌍';
+    const encoded = await encodeBase64(original);
+    const decoded = await decodeBase64(encoded);
+
+    expect(decoded).toEqual(original);
+  });
+
+  test('complex text roundtrip', async () => {
+    const original = `
+      This is a multiline string
+      with various characters: !@#$%^&*()
+      Unicode: こんにちは 🎉
+      Special chars: "quotes" and 'apostrophes'
+      Numbers: 12345
+    `;
+
+    const encoded = await encodeBase64(original);
+    const decoded = await decodeBase64(encoded);
+
+    expect(decoded).toEqual(original);
+  });
+
+  test('empty string roundtrip', async () => {
+    const original = '';
+    const encoded = await encodeBase64(original);
+    const decoded = await decodeBase64(encoded);
+
+    expect(decoded).toEqual(original);
+  });
+
+  test('File content roundtrip', async () => {
+    const originalContent = 'File content with special chars: àáâãäå';
+    const file = new File([originalContent], 'test.txt', { type: 'text/plain' });
+    const encoded = await encodeBase64(file);
+    const decoded = await decodeBase64(encoded);
+
+    expect(decoded).toEqual(originalContent);
   });
 });

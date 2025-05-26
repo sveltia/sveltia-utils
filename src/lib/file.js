@@ -157,7 +157,7 @@ const scanFiles = async ({ items }, { accept } = {}) => {
 const readAsText = async (file) => (await file.text()).replace(/\r\n/g, '\n');
 
 /**
- * Get the Base64 encoding of the given input.
+ * Get the data URL of the given input.
  * @param {File | Blob | string} input - Input file or string.
  * @returns {Promise<string>} Data URL like `data:text/plain;base64,...`.
  */
@@ -178,11 +178,26 @@ const getDataURL = async (input) => {
 };
 
 /**
- * Get the data URL of the given input.
+ * Encode the given input, either a file or a string, as a Base64-encoded string.
  * @param {File | Blob | string} input - Input file or string.
  * @returns {Promise<string>} Base64.
  */
-const getBase64 = async (input) => (await getDataURL(input)).split(',')[1];
+const encodeBase64 = async (input) => (await getDataURL(input)).split(',')[1];
+
+/**
+ * Decode a Base64-encoded string as a plaintext UTF-8 string. Uses `Promise` to be consistent with
+ * {@link encodeBase64}.
+ * @param {string} base64 - Base64-encoded string.
+ * @returns {Promise<string>} Decoded string.
+ * @see https://stackoverflow.com/q/21797299
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array/fromBase64
+ */
+const decodeBase64 = async (base64) => {
+  const buffer =
+    Uint8Array.fromBase64?.(base64) ?? Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+
+  return new TextDecoder().decode(buffer);
+};
 
 /**
  * Save the given file locally.
@@ -202,9 +217,10 @@ const saveFile = (file, name) => {
 };
 
 export {
+  decodeBase64,
   decodeFilePath,
+  encodeBase64,
   encodeFilePath,
-  getBase64,
   getBlobRegex,
   getDataURL,
   getPathInfo,
