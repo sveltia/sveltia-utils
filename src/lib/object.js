@@ -1,7 +1,7 @@
 /**
  * Check if the given input is a simple object.
  * @param {any} input - Input, probably an object.
- * @returns {boolean} Result.
+ * @returns {input is Record<string, any>} Result.
  */
 const isObject = (input) => input !== null && typeof input === 'object' && !Array.isArray(input);
 /**
