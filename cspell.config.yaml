@@ -19,6 +19,7 @@ ignorePaths:
 words:
   - colour
   - colours
+  - cooldown
   - CVEs
   - deproxified
   - esbuild
