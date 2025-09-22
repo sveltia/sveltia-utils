@@ -21,6 +21,7 @@ words:
   - colours
   - CVEs
   - deproxified
+  - esbuild
   - espree
   - IndexedDB
   - jsdoc
