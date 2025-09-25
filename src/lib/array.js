@@ -3,7 +3,7 @@ import { isObject } from './object';
 /**
  * Check if the given input is an array of objects.
  * @param {any} input - Input, probably an array.
- * @returns {boolean} Result.
+ * @returns {input is Record<string, any>[]} Result.
  */
 const isObjectArray = (input) =>
   Array.isArray(input) && /** @type {any[]} */ (input).every((item) => isObject(item));
