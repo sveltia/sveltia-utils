@@ -1,8 +1,8 @@
 cooldown: 1
 reject:
+  # https://github.com/sveltejs/svelte/issues/16990
+  - svelte
   # blocked by the ESLint v9 support of eslint-config-airbnb-base
   # https://github.com/airbnb/javascript/issues/2961
   - eslint
   - eslint-plugin-svelte
-  # https://github.com/gajus/eslint-plugin-jsdoc/issues/1478
-  - eslint-plugin-jsdoc
