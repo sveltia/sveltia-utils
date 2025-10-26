@@ -36,4 +36,5 @@ words:
   - stylelint
   - Sveltia
   - Vite
+  - Vitest
   - wght
