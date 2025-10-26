@@ -1,5 +1,5 @@
-import { uuidPattern } from './crypto';
-import { escapeRegExp } from './string';
+import { uuidPattern } from './crypto.js';
+import { escapeRegExp } from './string.js';
 
 /**
  * Get a regular expression that matches a blob URL.

@@ -8,7 +8,7 @@ import {
   encodeFilePath,
   getPathInfo,
   isValidFileType,
-} from './file';
+} from './file.js';
 
 describe('Test encodeFilePath()', () => {
   test('ASCII only', () => {

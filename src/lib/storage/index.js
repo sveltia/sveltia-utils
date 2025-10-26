@@ -1,2 +1,2 @@
-export { default as IndexedDB } from './indexed-db';
-export { default as LocalStorage } from './local-storage';
+export { default as IndexedDB } from './indexed-db.js';
+export { default as LocalStorage } from './local-storage.js';

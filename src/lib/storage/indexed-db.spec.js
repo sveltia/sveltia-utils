@@ -2,7 +2,7 @@
 
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { describe, expect, test } from 'vitest';
-import IndexedDB from './indexed-db';
+import IndexedDB from './indexed-db.js';
 
 // https://github.com/vitest-dev/vitest/discussions/908
 globalThis.indexedDB = indexedDB;

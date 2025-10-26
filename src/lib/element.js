@@ -1,4 +1,4 @@
-import { generateUUID } from './crypto';
+import { generateUUID } from './crypto.js';
 
 /**
  * Get a random ID that can be used for elements.

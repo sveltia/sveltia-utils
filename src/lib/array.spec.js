@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { isObjectArray, unique } from './array';
+import { isObjectArray, unique } from './array.js';
 
 describe('Test isObjectArray()', () => {
   test('simple', () => {

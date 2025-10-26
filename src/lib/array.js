@@ -1,4 +1,4 @@
-import { isObject } from './object';
+import { isObject } from './object.js';
 
 /**
  * Check if the given input is an array of objects.

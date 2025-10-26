@@ -1,6 +1,6 @@
 import { subtle } from 'crypto';
 import { beforeAll, describe, expect, test, vi } from 'vitest';
-import { generateUUID, getHash } from './crypto';
+import { generateUUID, getHash } from './crypto.js';
 
 describe('Test generateUUID()', () => {
   beforeAll(() => {

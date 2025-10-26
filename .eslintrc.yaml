@@ -28,7 +28,9 @@ overrides:
     parser: svelte-eslint-parser
 rules:
   class-methods-use-this: off
-  import/extensions: off
+  import/extensions:
+    - error
+    - ignorePackages
   import/no-extraneous-dependencies: off
   import/no-mutable-exports: off
   import/no-unresolved: off

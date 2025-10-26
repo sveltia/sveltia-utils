@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { compare } from './string';
+import { compare } from './string.js';
 
 describe('Test compare()', () => {
   test('simple', () => {
