@@ -36,6 +36,7 @@ rules:
   import/no-unresolved: off
   import/prefer-default-export: off
   jsdoc/no-undefined-types: off
+  jsdoc/reject-any-type: off
   jsdoc/require-jsdoc:
     - warn
     - require:
