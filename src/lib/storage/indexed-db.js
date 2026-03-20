@@ -70,7 +70,7 @@ export default class IndexedDB {
         const storeName = this.#storeName;
 
         const store = database.objectStoreNames.contains(storeName)
-          ? database.transaction(storeName, 'readwrite').objectStore(storeName)
+          ? /** @type {IDBTransaction} */ (request.transaction).objectStore(storeName)
           : database.createObjectStore(storeName, this.#storeOptions);
 
         this.#indexes.forEach(({ name, keyPath, options }) => {
@@ -131,18 +131,17 @@ export default class IndexedDB {
     const transaction = database.transaction(storeName, 'readwrite');
     const request = getRequest(transaction.objectStore(storeName));
 
-    if (request) {
-      return new Promise((resolve) => {
+    return new Promise((resolve) => {
+      if (request) {
         request.onsuccess = () => {
           resolve(request.result);
         };
-      });
-    }
-
-    return new Promise((resolve) => {
-      transaction.oncomplete = () => {
-        resolve(undefined);
-      };
+      } else {
+        /* v8 ignore next */
+        transaction.oncomplete = () => {
+          resolve(undefined);
+        };
+      }
     });
   }
 

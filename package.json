@@ -21,9 +21,9 @@
     "check:prettier": "prettier --check --plugin prettier-plugin-svelte .",
     "check:eslint": "eslint .",
     "check:stylelint": "stylelint '**/*.{css,scss,svelte}'",
-    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
-    "test:coverage": "NODE_OPTIONS=--no-experimental-webstorage vitest run --coverage",
-    "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "base32-encode": "^2.0.0"
@@ -43,7 +43,7 @@
     "eslint-plugin-jsdoc": "^62.8.0",
     "eslint-plugin-svelte": "^2.46.1",
     "fake-indexeddb": "^6.2.5",
-    "jsdom": "^28.1.0",
+    "happy-dom": "^20.8.4",
     "postcss": "^8.5.8",
     "postcss-html": "^1.8.1",
     "prettier": "^3.8.1",
@@ -62,8 +62,8 @@
   },
   "files": [
     "dist",
-    "!**/*.spec.js",
-    "!**/*.spec.d.ts"
+    "!**/*.test.js",
+    "!**/*.test.d.ts"
   ],
   "exports": {
     "./array": {

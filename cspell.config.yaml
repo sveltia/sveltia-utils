@@ -16,6 +16,7 @@ useGitignore: true
 ignorePaths:
   - pnpm-lock.yaml
   - data/**/*.json
+  - src/**/*.test.js
 words:
   - colour
   - colours

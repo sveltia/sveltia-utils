@@ -43,6 +43,21 @@ describe('Test IndexedDB', () => {
     expect(await db.keys()).toEqual([]);
   });
 
+  test('saveEntries', async () => {
+    const db = new IndexedDB('vite', 'test-6');
+
+    await db.saveEntries([
+      ['alpha', 100],
+      ['beta', 200],
+      ['gamma', 300],
+    ]);
+
+    expect(await db.get('alpha')).toEqual(100);
+    expect(await db.get('beta')).toEqual(200);
+    expect(await db.get('gamma')).toEqual(300);
+    expect(await db.keys()).toEqual(['alpha', 'beta', 'gamma']);
+  });
+
   test('Auto generating keys', async () => {
     const db = new IndexedDB('vite', 'test-2', { keyPath: 'id', autoIncrement: true });
 
@@ -145,5 +160,34 @@ describe('Test IndexedDB', () => {
       },
     ]);
     expect(await db.filter(({ category }) => category === 'tablet')).toEqual([]);
+  });
+
+  test('Upgrading existing store with a new index', async () => {
+    // First access: creates the store with a 'year' index
+    const db1 = new IndexedDB('vite', 'test-8', {
+      keyPath: 'id',
+      autoIncrement: true,
+      indexes: [{ name: 'year', keyPath: 'year' }],
+    });
+
+    expect(await db1.put({ year: 2023, title: 'one' })).toEqual(1);
+    expect(await db1.keys()).toEqual([1]);
+
+    // Second access: same db/store, but requests an additional 'title' index.
+    // This triggers onupgradeneeded where:
+    //   - objectStoreNames.contains('test-8') is TRUE  → takes the existing-store branch
+    //   - 'year' already exists → !indexNames.contains('year') is false → skipped
+    //   - 'title' is new → created
+    const db2 = new IndexedDB('vite', 'test-8', {
+      keyPath: 'id',
+      autoIncrement: true,
+      indexes: [
+        { name: 'year', keyPath: 'year' },
+        { name: 'title', keyPath: 'title' },
+      ],
+    });
+
+    expect(await db2.keys()).toEqual([1]);
+    expect(await db2.get(1)).toEqual({ id: 1, year: 2023, title: 'one' });
   });
 });

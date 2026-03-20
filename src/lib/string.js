@@ -36,7 +36,7 @@ const stripSlashes = (string) => string.replace(/^\/+/, '').replace(/\/+$/, '');
  * @returns {string} Sanitized string, e.g. `Hello`.
  */
 const stripTags = (string) =>
-  new DOMParser().parseFromString(string, 'text/html').body.textContent ?? '';
+  /** @type {string} */ (new DOMParser().parseFromString(string, 'text/html').body.textContent);
 
 /**
  * Check if the given string is a URL.

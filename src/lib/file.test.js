@@ -1,13 +1,18 @@
 // cspell:disable
 
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   decodeBase64,
   decodeFilePath,
   encodeBase64,
   encodeFilePath,
+  getBlobRegex,
   getPathInfo,
+  isTextFileType,
   isValidFileType,
+  readAsText,
+  saveFile,
+  scanFiles,
 } from './file.js';
 
 describe('Test encodeFilePath()', () => {
@@ -118,6 +123,15 @@ describe('Test getPathInfo()', () => {
       basename: 'archive.en.tar.gz',
       filename: 'archive.en',
       extension: 'tar.gz',
+    });
+  });
+
+  test('empty string', () => {
+    expect(getPathInfo('')).toEqual({
+      dirname: undefined,
+      basename: undefined,
+      filename: undefined,
+      extension: undefined,
     });
   });
 
@@ -288,5 +302,232 @@ describe('Test encodeBase64() and decodeBase64() roundtrip', () => {
     const decoded = await decodeBase64(encoded);
 
     expect(decoded).toEqual(originalContent);
+  });
+});
+
+describe('Test isTextFileType()', () => {
+  test('text/* types', () => {
+    expect(isTextFileType('text/plain')).toBe(true);
+    expect(isTextFileType('text/html')).toBe(true);
+    expect(isTextFileType('text/markdown')).toBe(true);
+    expect(isTextFileType('text/css')).toBe(true);
+  });
+
+  test('known non-text/* text types', () => {
+    expect(isTextFileType('application/json')).toBe(true);
+    expect(isTextFileType('application/javascript')).toBe(true);
+    expect(isTextFileType('application/xml')).toBe(true);
+    expect(isTextFileType('application/yaml')).toBe(true);
+    expect(isTextFileType('image/svg+xml')).toBe(true);
+  });
+
+  test('binary types', () => {
+    expect(isTextFileType('image/png')).toBe(false);
+    expect(isTextFileType('image/jpeg')).toBe(false);
+    expect(isTextFileType('application/pdf')).toBe(false);
+    expect(isTextFileType('application/octet-stream')).toBe(false);
+    expect(isTextFileType('video/mp4')).toBe(false);
+  });
+});
+
+describe('Test readAsText()', () => {
+  test('reads plain text', async () => {
+    const file = new File(['Hello, World!'], 'test.txt', { type: 'text/plain' });
+
+    expect(await readAsText(file)).toEqual('Hello, World!');
+  });
+
+  test('converts CRLF to LF', async () => {
+    const file = new File(['line1\r\nline2\r\nline3'], 'test.txt', { type: 'text/plain' });
+
+    expect(await readAsText(file)).toEqual('line1\nline2\nline3');
+  });
+
+  test('handles empty file', async () => {
+    const file = new File([''], 'empty.txt', { type: 'text/plain' });
+
+    expect(await readAsText(file)).toEqual('');
+  });
+
+  test('reads Blob', async () => {
+    const blob = new Blob(['Blob content'], { type: 'text/plain' });
+
+    expect(await readAsText(blob)).toEqual('Blob content');
+  });
+});
+
+describe('Test getBlobRegex()', () => {
+  test('returns a RegExp', () => {
+    const regex = getBlobRegex();
+
+    expect(regex).toBeInstanceOf(RegExp);
+  });
+
+  test('with flags', () => {
+    const regex = getBlobRegex('gi');
+
+    expect(regex.flags).toContain('g');
+    expect(regex.flags).toContain('i');
+  });
+
+  test('matches a blob URL with current origin', () => {
+    const { origin } = globalThis.location;
+    const uuid = '9649bc30-4618-42eb-894e-c6441e7810d6';
+    const blobUrl = `blob:${origin}/${uuid}`;
+    const regex = getBlobRegex();
+
+    expect(regex.test(blobUrl)).toBe(true);
+  });
+
+  test('does not match non-blob URLs', () => {
+    const regex = getBlobRegex();
+
+    expect(regex.test('https://example.com')).toBe(false);
+    expect(regex.test('data:text/plain;base64,SGVsbG8=')).toBe(false);
+  });
+});
+
+describe('Test saveFile()', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('saves a File using its name', () => {
+    const link = { click: vi.fn(), href: '', download: '' };
+
+    vi.spyOn(document, 'createElement').mockReturnValue(/** @type {any} */ (link));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    const file = new File(['content'], 'photo.jpg', { type: 'image/jpeg' });
+
+    saveFile(file);
+    expect(link.download).toEqual('photo.jpg');
+    expect(link.href).toEqual('blob:mock');
+    expect(link.click).toHaveBeenCalledOnce();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock');
+  });
+
+  test('saves a Blob with an explicit name', () => {
+    const link = { click: vi.fn(), href: '', download: '' };
+
+    vi.spyOn(document, 'createElement').mockReturnValue(/** @type {any} */ (link));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock2');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    const blob = new Blob(['data'], { type: 'text/plain' });
+
+    saveFile(blob, 'readme.txt');
+    expect(link.download).toEqual('readme.txt');
+    expect(link.click).toHaveBeenCalledOnce();
+  });
+
+  test('saves a Blob without a name using type-based fallback', () => {
+    const link = { click: vi.fn(), href: '', download: '' };
+
+    vi.spyOn(document, 'createElement').mockReturnValue(/** @type {any} */ (link));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock3');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    const blob = new Blob(['data'], { type: 'image/png' });
+
+    saveFile(blob); // no name arg; Blob has no .name → falls back to `${Date.now()}.png`
+    expect(link.download).toMatch(/^\d+\.png$/);
+    expect(link.click).toHaveBeenCalledOnce();
+  });
+});
+
+describe('Test scanFiles()', () => {
+  /**
+   * @param {File} file
+   * @returns {object} A mock file entry with the given file.
+   */
+  const makeFileEntry = (file) => ({
+    name: file.name,
+    isFile: true,
+    file: (/** @type {(f: File) => void} */ onSuccess) => onSuccess(file),
+  });
+
+  /**
+   * @param {string} name
+   * @param {object[]} children
+   * @returns {object} A mock directory entry with the given name and children.
+   */
+  const makeDirEntry = (name, children) => ({
+    name,
+    isFile: false,
+    createReader: () => ({
+      readEntries: (/** @type {(entries: object[]) => void} */ cb) => cb(children),
+    }),
+  });
+
+  test('returns files sorted by name', async () => {
+    const fileB = new File(['b'], 'b.txt', { type: 'text/plain' });
+    const fileA = new File(['a'], 'a.txt', { type: 'text/plain' });
+
+    const items = [
+      { webkitGetAsEntry: () => makeFileEntry(fileB) },
+      { webkitGetAsEntry: () => makeFileEntry(fileA) },
+    ];
+
+    const result = await scanFiles(/** @type {any} */ ({ items }));
+
+    expect(result.map((f) => f.name)).toEqual(['a.txt', 'b.txt']);
+  });
+
+  test('skips hidden files', async () => {
+    const hidden = new File(['x'], '.hidden', { type: 'text/plain' });
+    const visible = new File(['y'], 'visible.txt', { type: 'text/plain' });
+
+    const items = [
+      { webkitGetAsEntry: () => makeFileEntry(hidden) },
+      { webkitGetAsEntry: () => makeFileEntry(visible) },
+    ];
+
+    const result = await scanFiles(/** @type {any} */ ({ items }));
+
+    expect(result.map((f) => f.name)).toEqual(['visible.txt']);
+  });
+
+  test('filters by accept type', async () => {
+    const img = new File(['i'], 'photo.png', { type: 'image/png' });
+    const txt = new File(['t'], 'readme.txt', { type: 'text/plain' });
+
+    const items = [
+      { webkitGetAsEntry: () => makeFileEntry(img) },
+      { webkitGetAsEntry: () => makeFileEntry(txt) },
+    ];
+
+    const result = await scanFiles(/** @type {any} */ ({ items }), { accept: 'image/*' });
+
+    expect(result.map((f) => f.name)).toEqual(['photo.png']);
+  });
+
+  test('recurses into directories', async () => {
+    const fileC = new File(['c'], 'c.txt', { type: 'text/plain' });
+    const fileD = new File(['d'], 'd.txt', { type: 'text/plain' });
+    const dirEntry = makeDirEntry('subdir', [makeFileEntry(fileD)]);
+
+    const items = [
+      { webkitGetAsEntry: () => makeFileEntry(fileC) },
+      { webkitGetAsEntry: () => dirEntry },
+    ];
+
+    const result = await scanFiles(/** @type {any} */ ({ items }));
+
+    expect(result.map((f) => f.name)).toEqual(['c.txt', 'd.txt']);
+  });
+
+  test('skips items with no entry', async () => {
+    const file = new File(['x'], 'x.txt', { type: 'text/plain' });
+
+    const items = [
+      { webkitGetAsEntry: () => null },
+      { webkitGetAsEntry: () => makeFileEntry(file) },
+    ];
+
+    const result = await scanFiles(/** @type {any} */ ({ items }));
+
+    expect(result.map((f) => f.name)).toEqual(['x.txt']);
   });
 });

@@ -26,6 +26,12 @@ overrides:
       - "*.svelte"
       - "*.svelte.js"
     parser: svelte-eslint-parser
+  - files:
+      - "*.test.js"
+    rules:
+      jsdoc/require-description: off
+      jsdoc/require-jsdoc: off
+      jsdoc/require-param-description: off
 rules:
   class-methods-use-this: off
   import/extensions:

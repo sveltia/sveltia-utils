@@ -122,6 +122,7 @@ const scanFiles = async ({ items }, { accept } = {}) => {
             resolve(isValidFileType(file, specifiers) ? file : null);
           },
           // Skip inaccessible files
+          /* v8 ignore next */
           () => {
             resolve(null);
           },
@@ -193,8 +194,7 @@ const encodeBase64 = async (input) => (await getDataURL(input)).split(',')[1];
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array/fromBase64
  */
 const decodeBase64 = async (base64) => {
-  const buffer =
-    Uint8Array.fromBase64?.(base64) ?? Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const buffer = Uint8Array.fromBase64(base64);
 
   return new TextDecoder().decode(buffer);
 };
