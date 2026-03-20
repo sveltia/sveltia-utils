@@ -7,7 +7,7 @@ const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 /**
  * Generate a v4 UUID or its shortened version.
- * @param {'short' | 'shorter' | number} [length] - Length.
+ * @param {'short' | 'shorter' | number} [length] Length.
  * @returns {string} UUID like `10f95178-c983-4cfe-91d6-4e62c8c7e582`.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
  */
@@ -48,10 +48,10 @@ const generateRandomId = () => {
 
 /**
  * Get the SHA hash of the given file or text.
- * @param {File | Blob | ArrayBuffer | ArrayBufferView | string} input - File or text.
- * @param {object} [options] - Options.
- * @param {'SHA-1' | 'SHA-256' | 'SHA-512'} [options.algorithm] - Digest algorithm. Default: SHA-1.
- * @param {'hex' | 'binary'} [options.format] - Hash format. Default: hex.
+ * @param {File | Blob | ArrayBuffer | ArrayBufferView | string} input File or text.
+ * @param {object} [options] Options.
+ * @param {'SHA-1' | 'SHA-256' | 'SHA-512'} [options.algorithm] Digest algorithm. Default: SHA-1.
+ * @param {'hex' | 'binary'} [options.format] Hash format. Default: hex.
  * @returns {Promise<string>} Hash.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
  */

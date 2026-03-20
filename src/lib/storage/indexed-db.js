@@ -38,13 +38,12 @@ export default class IndexedDB {
 
   /**
    * Initialize a new `IndexedDB` instance.
-   * @param {string} databaseName - Database name.
-   * @param {string} storeName - Store name.
-   * @param {object} [options] - Options.
-   * @param {string | string[]} [options.keyPath] - Option for `createObjectStore()`.
-   * @param {boolean} [options.autoIncrement] - Option for `createObjectStore()`.
-   * @param {import("../typedefs").DatabaseIndex[]} [options.indexes] - Arguments for
-   * `createIndex()`.
+   * @param {string} databaseName Database name.
+   * @param {string} storeName Store name.
+   * @param {object} [options] Options.
+   * @param {string | string[]} [options.keyPath] Option for `createObjectStore()`.
+   * @param {boolean} [options.autoIncrement] Option for `createObjectStore()`.
+   * @param {import("../typedefs").DatabaseIndex[]} [options.indexes] Arguments for `createIndex()`.
    * @see https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase/createObjectStore
    * @see https://stackoverflow.com/questions/33852508/how-to-create-an-indexeddb-composite-key
    */
@@ -58,7 +57,7 @@ export default class IndexedDB {
 
   /**
    * Open the database and create a store if needed.
-   * @param {number} [version] - Database version.
+   * @param {number} [version] Database version.
    * @returns {Promise<IDBDatabase>} Database.
    */
   async #openDatabase(version) {
@@ -120,7 +119,7 @@ export default class IndexedDB {
 
   /**
    * Create a database if not yet initialized, then execute the given function over the store.
-   * @param {(store: IDBObjectStore) => IDBRequest | void} getRequest - Function to be executed.
+   * @param {(store: IDBObjectStore) => IDBRequest | void} getRequest Function to be executed.
    * @returns {Promise<any | void>} Result.
    */
   async #query(getRequest) {
@@ -147,8 +146,8 @@ export default class IndexedDB {
 
   /**
    * Save a value with an out-of-line key.
-   * @param {any} key - Key.
-   * @param {any} value - Value.
+   * @param {any} key Key.
+   * @param {any} value Value.
    * @returns {Promise<any>} Key.
    */
   async set(key, value) {
@@ -157,7 +156,7 @@ export default class IndexedDB {
 
   /**
    * Save a value with an inline key.
-   * @param {any} value - Value.
+   * @param {any} value Value.
    * @returns {Promise<any>} Key.
    */
   async put(value) {
@@ -166,7 +165,7 @@ export default class IndexedDB {
 
   /**
    * Save multiple records.
-   * @param {[any, any][]} records - Key/value pairs.
+   * @param {[any, any][]} records Key/value pairs.
    * @returns {Promise<any>} Key.
    */
   async saveEntries(records) {
@@ -179,7 +178,7 @@ export default class IndexedDB {
 
   /**
    * Retrieve a value by key.
-   * @param {any} key - Key.
+   * @param {any} key Key.
    * @returns {Promise<any>} Value.
    */
   async get(key) {
@@ -214,12 +213,12 @@ export default class IndexedDB {
 
   /**
    * Find one or more records using a cursor.
-   * @param {object} args - Arguments.
-   * @param {(record: any) => boolean} [args.callback] - A function to execute for each record.
-   * @param {string} [args.index] - Index name.
-   * @param {IDBValidKey | IDBKeyRange} [args.query] - Query option for `openCursor()`.
-   * @param {IDBCursorDirection} [args.direction] - The direction option for `openCursor()`.
-   * @param {boolean} [args.multiple] - Whether to return all matching records.
+   * @param {object} args Arguments.
+   * @param {(record: any) => boolean} [args.callback] A function to execute for each record.
+   * @param {string} [args.index] Index name.
+   * @param {IDBValidKey | IDBKeyRange} [args.query] Query option for `openCursor()`.
+   * @param {IDBCursorDirection} [args.direction] The direction option for `openCursor()`.
+   * @param {boolean} [args.multiple] Whether to return all matching records.
    * @returns {Promise<any | any[]>} Found record(s).
    */
   async #search({
@@ -261,10 +260,10 @@ export default class IndexedDB {
 
   /**
    * Find the first record that matches the condition.
-   * @param {(record: any) => boolean} [callback] - A function to execute for each record.
-   * @param {object} [options] - Options.
-   * @param {string} [options.index] - Index.
-   * @param {IDBValidKey | IDBKeyRange} [options.query] - Query option for `openCursor()`.
+   * @param {(record: any) => boolean} [callback] A function to execute for each record.
+   * @param {object} [options] Options.
+   * @param {string} [options.index] Index.
+   * @param {IDBValidKey | IDBKeyRange} [options.query] Query option for `openCursor()`.
    * @returns {Promise<any>} Found record.
    */
   async find(callback, { index, query } = {}) {
@@ -273,10 +272,10 @@ export default class IndexedDB {
 
   /**
    * Find the last record that matches the condition.
-   * @param {(record: any) => boolean} [callback] - A function to execute for each record.
-   * @param {object} [options] - Options.
-   * @param {string} [options.index] - Index.
-   * @param {IDBValidKey | IDBKeyRange} [options.query] - Query option for `openCursor()`.
+   * @param {(record: any) => boolean} [callback] A function to execute for each record.
+   * @param {object} [options] Options.
+   * @param {string} [options.index] Index.
+   * @param {IDBValidKey | IDBKeyRange} [options.query] Query option for `openCursor()`.
    * @returns {Promise<any>} Found record.
    */
   async findLast(callback, { index, query } = {}) {
@@ -285,10 +284,10 @@ export default class IndexedDB {
 
   /**
    * Find all the records that match the condition.
-   * @param {(record: any) => boolean} [callback] - A function to execute for each record.
-   * @param {object} [options] - Options.
-   * @param {string} [options.index] - Index.
-   * @param {IDBValidKey | IDBKeyRange} [options.query] - Query option for `openCursor()`.
+   * @param {(record: any) => boolean} [callback] A function to execute for each record.
+   * @param {object} [options] Options.
+   * @param {string} [options.index] Index.
+   * @param {IDBValidKey | IDBKeyRange} [options.query] Query option for `openCursor()`.
    * @returns {Promise<any[]>} Found records.
    */
   async filter(callback, { index, query } = {}) {
@@ -297,7 +296,7 @@ export default class IndexedDB {
 
   /**
    * Delete an record by key.
-   * @param {any} key - Key.
+   * @param {any} key Key.
    * @returns {Promise<void>} Result.
    */
   async delete(key) {
@@ -306,7 +305,7 @@ export default class IndexedDB {
 
   /**
    * Delete multiple records by keys.
-   * @param {any[]} keys - Property keys.
+   * @param {any[]} keys Property keys.
    * @returns {Promise<void>} Result.
    */
   async deleteEntries(keys) {

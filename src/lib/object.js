@@ -1,13 +1,13 @@
 /**
  * Check if the given input is a simple object.
- * @param {any} input - Input, probably an object.
+ * @param {any} input Input, probably an object.
  * @returns {input is Record<string, any>} Result.
  */
 const isObject = (input) => input !== null && typeof input === 'object' && !Array.isArray(input);
 /**
  * Convert a Proxy to the original object. The built-in `structuredClone()` method throws with a
  * Proxy, so this can be used instead. The name of `toRaw` is derived from the equivalent in Vue.
- * @param {object} obj - Proxified object.
+ * @param {object} obj Proxified object.
  * @returns {object} Deproxified object.
  */
 const toRaw = (obj) => JSON.parse(JSON.stringify(obj));
