@@ -82,6 +82,10 @@
       "types": "./dist/element.d.ts",
       "default": "./dist/element.js"
     },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "default": "./dist/events.js"
+    },
     "./file": {
       "types": "./dist/file.d.ts",
       "default": "./dist/file.js"
