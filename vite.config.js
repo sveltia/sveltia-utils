@@ -6,6 +6,11 @@ const config = {
   test: {
     environment: 'jsdom',
     include: ['src/**/*.{test,spec}.{js,ts}'],
+    coverage: {
+      include: ['src/**/*.js'],
+      reporter: ['text', 'json-summary', 'json'],
+    },
+    silent: true,
   },
 };
 

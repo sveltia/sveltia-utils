@@ -21,7 +21,9 @@
     "check:prettier": "prettier --check --plugin prettier-plugin-svelte .",
     "check:eslint": "eslint .",
     "check:stylelint": "stylelint '**/*.{css,scss,svelte}'",
-    "test:unit": "vitest"
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
+    "test:coverage": "NODE_OPTIONS=--no-experimental-webstorage vitest run --coverage",
+    "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest"
   },
   "dependencies": {
     "base32-encode": "^2.0.0"
@@ -32,6 +34,7 @@
     "@sveltejs/package": "^2.5.7",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@types/node": "^25.5.0",
+    "@vitest/coverage-v8": "4.1.0",
     "cspell": "^9.7.0",
     "eslint": "^8.57.1",
     "eslint-config-airbnb-base": "^15.0.0",
