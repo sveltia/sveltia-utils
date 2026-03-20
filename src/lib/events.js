@@ -9,7 +9,7 @@ let _isMac;
  * Check if the user agent is macOS.
  * @returns {boolean} Result.
  */
-export const isMac = () => {
+const isMac = () => {
   _isMac ??=
     /** @type {any} */ (navigator).userAgentData?.platform === 'macOS' ||
     navigator.platform.startsWith('Mac');
@@ -27,7 +27,7 @@ const CODE_RE = /^(?:Digit|Key)(.)$/;
  * @returns {boolean} Result.
  * @see https://w3c.github.io/aria/#aria-keyshortcuts
  */
-export const matchShortcuts = (event, shortcuts) => {
+const matchShortcuts = (event, shortcuts) => {
   const { ctrlKey, metaKey, altKey, shiftKey, code } = event;
 
   // The `code` property can be `undefined` in some cases
@@ -74,7 +74,7 @@ export const matchShortcuts = (event, shortcuts) => {
  * replaced with `Ctrl` on Windows/Linux and `Command` on macOS.
  * @returns {ActionReturn} Actions.
  */
-export const activateKeyShortcuts = (element, shortcuts = '') => {
+const activateKeyShortcuts = (element, shortcuts = '') => {
   /** @type {string | undefined} */
   let platformKeyShortcuts;
   /**
@@ -191,3 +191,5 @@ export const activateKeyShortcuts = (element, shortcuts = '') => {
     },
   };
 };
+
+export { activateKeyShortcuts, isMac, matchShortcuts };

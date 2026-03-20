@@ -122,6 +122,9 @@
       "element": [
         "./dist/element.d.ts"
       ],
+      "events": [
+        "./dist/events.d.ts"
+      ],
       "file": [
         "./dist/file.d.ts"
       ],
