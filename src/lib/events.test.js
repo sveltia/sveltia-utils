@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { activateKeyShortcuts, isMac, matchShortcuts } from './events.js';
+import { activateKeyShortcuts, isMac, matchesShortcuts } from './events.js';
 
 /**
  * Helper to create a minimal KeyboardEvent-like object.
@@ -16,68 +16,105 @@ const makeEvent = (overrides = {}) =>
     ...overrides,
   });
 
-describe('matchShortcuts', () => {
+describe('matchesShortcuts', () => {
   it('should match a plain key shortcut', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyS' }), 'S')).toBe(true);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyS' }), 'S')).toBe(true);
   });
 
   it('should not match when the key differs', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyA' }), 'S')).toBe(false);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyA' }), 'S')).toBe(false);
   });
 
   it('should match Ctrl+S', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyS', ctrlKey: true }), 'Ctrl+S')).toBe(true);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyS', ctrlKey: true }), 'Ctrl+S')).toBe(true);
   });
 
   it('should not match Ctrl+S when Ctrl is not pressed', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyS' }), 'Ctrl+S')).toBe(false);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyS' }), 'Ctrl+S')).toBe(false);
   });
 
   it('should not match Ctrl+S when an extra modifier is pressed', () => {
     expect(
-      matchShortcuts(makeEvent({ code: 'KeyS', ctrlKey: true, shiftKey: true }), 'Ctrl+S'),
+      matchesShortcuts(makeEvent({ code: 'KeyS', ctrlKey: true, shiftKey: true }), 'Ctrl+S'),
     ).toBe(false);
   });
 
   it('should match Shift+A', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyA', shiftKey: true }), 'Shift+A')).toBe(true);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyA', shiftKey: true }), 'Shift+A')).toBe(true);
   });
 
   it('should match Alt+F4', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyF', altKey: true }), 'Alt+F')).toBe(true);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyF', altKey: true }), 'Alt+F')).toBe(true);
   });
 
   it('should match any of multiple space-separated shortcuts', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyZ', ctrlKey: true }), 'Ctrl+Z Ctrl+Y')).toBe(true);
-    expect(matchShortcuts(makeEvent({ code: 'KeyY', ctrlKey: true }), 'Ctrl+Z Ctrl+Y')).toBe(true);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyZ', ctrlKey: true }), 'Ctrl+Z Ctrl+Y')).toBe(
+      true,
+    );
+    expect(matchesShortcuts(makeEvent({ code: 'KeyY', ctrlKey: true }), 'Ctrl+Z Ctrl+Y')).toBe(
+      true,
+    );
   });
 
   it('should return false when code is empty', () => {
-    expect(matchShortcuts(makeEvent({ code: '' }), 'S')).toBe(false);
+    expect(matchesShortcuts(makeEvent({ code: '' }), 'S')).toBe(false);
   });
 
   it('should match digit keys using Digit prefix', () => {
-    expect(matchShortcuts(makeEvent({ code: 'Digit1' }), '1')).toBe(true);
+    expect(matchesShortcuts(makeEvent({ code: 'Digit1' }), '1')).toBe(true);
   });
 
   it('should be case-insensitive for the key', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyS' }), 's')).toBe(true);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyS' }), 's')).toBe(true);
   });
 
   it('should return false when Meta is required but not pressed', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyS', metaKey: false }), 'Meta+S')).toBe(false);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyS', metaKey: false }), 'Meta+S')).toBe(false);
   });
 
   it('should return true when Meta is required and pressed', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyS', metaKey: true }), 'Meta+S')).toBe(true);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyS', metaKey: true }), 'Meta+S')).toBe(true);
   });
 
   it('should return false when Alt is required but not pressed', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyF', altKey: false }), 'Alt+F')).toBe(false);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyF', altKey: false }), 'Alt+F')).toBe(false);
   });
 
   it('should return false when Shift is required but not pressed', () => {
-    expect(matchShortcuts(makeEvent({ code: 'KeyA', shiftKey: false }), 'Shift+A')).toBe(false);
+    expect(matchesShortcuts(makeEvent({ code: 'KeyA', shiftKey: false }), 'Shift+A')).toBe(false);
+  });
+
+  it('should resolve Accel to either Ctrl or Meta depending on platform', () => {
+    const withCtrl = matchesShortcuts(makeEvent({ code: 'KeyS', ctrlKey: true }), 'Accel+S');
+    const withMeta = matchesShortcuts(makeEvent({ code: 'KeyS', metaKey: true }), 'Accel+S');
+
+    // Exactly one of the two should match (Ctrl on non-Mac, Meta on Mac)
+    expect(withCtrl || withMeta).toBe(true);
+    expect(withCtrl && withMeta).toBe(false);
+  });
+});
+
+describe('matchesShortcuts - Accel on macOS', () => {
+  it('should resolve Accel to Meta when on macOS', async () => {
+    vi.resetModules();
+
+    const origDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { userAgentData: { platform: 'macOS' }, platform: 'MacIntel' },
+    });
+
+    try {
+      const { matchesShortcuts: freshMatch } = await import('./events.js');
+
+      expect(freshMatch(makeEvent({ code: 'KeyS', metaKey: true }), 'Accel+S')).toBe(true);
+      expect(freshMatch(makeEvent({ code: 'KeyS', ctrlKey: true }), 'Accel+S')).toBe(false);
+    } finally {
+      if (origDescriptor) {
+        Object.defineProperty(globalThis, 'navigator', origDescriptor);
+      }
+    }
   });
 });
 
@@ -200,7 +237,7 @@ describe('activateKeyShortcuts', () => {
     expect(clickSpy).not.toHaveBeenCalled();
   });
 
-  it('should not trigger click when the event code is empty (covers inner return false branch)', () => {
+  it('should not trigger click when the event code is empty', () => {
     // eslint-disable-next-line jsdoc/require-jsdoc
     Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => document.body });
     activateKeyShortcuts(button, 'Ctrl+S');
@@ -208,7 +245,7 @@ describe('activateKeyShortcuts', () => {
     const clickSpy = vi.fn();
 
     button.addEventListener('click', clickSpy);
-    // Dispatch with empty code — the parsedShortcuts.some() callback returns false (line 101)
+    // Dispatch with empty code — matchesShortcuts returns false early
     globalThis.dispatchEvent(
       new KeyboardEvent('keydown', { code: '', ctrlKey: true, bubbles: true }),
     );

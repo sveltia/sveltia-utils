@@ -27,7 +27,7 @@ const CODE_RE = /^(?:Digit|Key)(.)$/;
  * @returns {boolean} Result.
  * @see https://w3c.github.io/aria/#aria-keyshortcuts
  */
-const matchShortcuts = (event, shortcuts) => {
+const matchesShortcuts = (event, shortcuts) => {
   const { ctrlKey, metaKey, altKey, shiftKey, code } = event;
 
   // The `code` property can be `undefined` in some cases
@@ -36,8 +36,9 @@ const matchShortcuts = (event, shortcuts) => {
   }
 
   const key = code.replace(CODE_RE, '$1');
+  const resolvedShortcuts = shortcuts.replace(/\bAccel\b/g, isMac() ? 'Meta' : 'Ctrl');
 
-  return shortcuts.split(/\s+/).some((shortcut) => {
+  return resolvedShortcuts.split(/\s+/).some((shortcut) => {
     const keys = shortcut.split('+');
 
     // Check if required modifier keys are pressed
@@ -77,12 +78,6 @@ const matchShortcuts = (event, shortcuts) => {
 const activateKeyShortcuts = (element, shortcuts = '') => {
   /** @type {string | undefined} */
   let platformKeyShortcuts;
-  /**
-   * Pre-parsed shortcuts for fast per-event matching without string allocations.
-   * @type {{ ctrl: boolean, meta: boolean, alt: boolean, shift: boolean, nonModifierKeys: string[]
-   * }[] | undefined}
-   */
-  let parsedShortcuts;
 
   /**
    * Handle the event.
@@ -92,26 +87,7 @@ const activateKeyShortcuts = (element, shortcuts = '') => {
     const { disabled, offsetParent } = element;
 
     // Check shortcut match and visibility first — no layout reflow until needed
-    if (
-      !offsetParent ||
-      !parsedShortcuts?.some(({ ctrl, meta, alt, shift, nonModifierKeys }) => {
-        const { ctrlKey, metaKey, altKey, shiftKey, code } = event;
-
-        if (!code) {
-          return false;
-        }
-
-        const key = code.replace(CODE_RE, '$1').toUpperCase();
-
-        return (
-          ctrl === ctrlKey &&
-          meta === metaKey &&
-          alt === altKey &&
-          shift === shiftKey &&
-          nonModifierKeys.every((k) => k === key)
-        );
-      })
-    ) {
+    if (!offsetParent || !platformKeyShortcuts || !matchesShortcuts(event, platformKeyShortcuts)) {
       return;
     }
 
@@ -155,24 +131,8 @@ const activateKeyShortcuts = (element, shortcuts = '') => {
       : undefined;
 
     if (platformKeyShortcuts) {
-      parsedShortcuts = platformKeyShortcuts.split(/\s+/).map((shortcut) => {
-        const parts = shortcut.split('+');
-
-        return {
-          ctrl: parts.includes('Ctrl'),
-          meta: parts.includes('Meta'),
-          alt: parts.includes('Alt'),
-          shift: parts.includes('Shift'),
-          nonModifierKeys: parts
-            .filter((k) => !MODIFIER_KEYS.includes(k))
-            .map((k) => k.toUpperCase()),
-        };
-      });
-
       globalThis.addEventListener('keydown', handler, { capture: true });
       element.setAttribute('aria-keyshortcuts', platformKeyShortcuts);
-    } else {
-      parsedShortcuts = undefined;
     }
   };
 
@@ -192,4 +152,4 @@ const activateKeyShortcuts = (element, shortcuts = '') => {
   };
 };
 
-export { activateKeyShortcuts, isMac, matchShortcuts };
+export { activateKeyShortcuts, isMac, matchesShortcuts };
