@@ -1,5 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
-
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { describe, expect, test } from 'vitest';
 import IndexedDB from './indexed-db.js';

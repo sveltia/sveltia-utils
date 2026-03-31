@@ -138,7 +138,6 @@ describe('activateKeyShortcuts', () => {
       Object.defineProperty(document, 'elementsFromPoint', {
         configurable: true,
         writable: true,
-        // eslint-disable-next-line jsdoc/require-jsdoc
         value: () => /** @type {Element[]} */ ([]),
       });
     }
@@ -196,7 +195,6 @@ describe('activateKeyShortcuts', () => {
   });
 
   it('should trigger click on element when matching shortcut key is pressed', () => {
-    // eslint-disable-next-line jsdoc/require-jsdoc
     Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => document.body });
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue(/** @type {any} */ ([button]));
 
@@ -223,7 +221,6 @@ describe('activateKeyShortcuts', () => {
   });
 
   it('should not trigger click when element is not in elementsFromPoint result', () => {
-    // eslint-disable-next-line jsdoc/require-jsdoc
     Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => document.body });
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue(/** @type {any} */ ([]));
 
@@ -238,7 +235,6 @@ describe('activateKeyShortcuts', () => {
   });
 
   it('should not trigger click when the event code is empty', () => {
-    // eslint-disable-next-line jsdoc/require-jsdoc
     Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => document.body });
     activateKeyShortcuts(button, 'Ctrl+S');
 
@@ -253,7 +249,6 @@ describe('activateKeyShortcuts', () => {
   });
 
   it('should manipulate pointer-events for disabled button but not trigger click', () => {
-    // eslint-disable-next-line jsdoc/require-jsdoc
     Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => document.body });
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue(/** @type {any} */ ([button]));
     button.disabled = true;
