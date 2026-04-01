@@ -149,49 +149,32 @@ describe('activateKeyShortcuts', () => {
   });
 
   it('should set aria-keyshortcuts when shortcuts are provided', () => {
-    const action = activateKeyShortcuts(button, 'Ctrl+S');
+    const cleanup = activateKeyShortcuts('Ctrl+S')(button);
 
     expect(button.getAttribute('aria-keyshortcuts')).toBe('Ctrl+S');
-    action.destroy?.();
+    cleanup?.();
   });
 
   it('should not set aria-keyshortcuts when no shortcuts are provided', () => {
-    const action = activateKeyShortcuts(button);
+    const cleanup = activateKeyShortcuts()(button);
 
     expect(button.getAttribute('aria-keyshortcuts')).toBeNull();
-    action.destroy?.();
+    cleanup?.();
   });
 
-  it('should remove aria-keyshortcuts after destroy', () => {
-    const action = activateKeyShortcuts(button, 'Ctrl+S');
+  it('should remove aria-keyshortcuts after cleanup', () => {
+    const cleanup = activateKeyShortcuts('Ctrl+S')(button);
 
-    action.destroy?.();
+    cleanup?.();
     expect(button.getAttribute('aria-keyshortcuts')).toBeNull();
   });
 
   it('should replace Accel with Meta or Ctrl depending on platform', () => {
-    const action = activateKeyShortcuts(button, 'Accel+S');
+    const cleanup = activateKeyShortcuts('Accel+S')(button);
     const attr = button.getAttribute('aria-keyshortcuts');
 
     expect(attr === 'Meta+S' || attr === 'Ctrl+S').toBe(true);
-    action.destroy?.();
-  });
-
-  it('should re-register the original shortcuts when update() is called', () => {
-    // update() re-applies the same original shortcuts (param is intentionally ignored)
-    const action = activateKeyShortcuts(button, 'Ctrl+S');
-
-    /** @type {any} */ (action).update('Ctrl+Z');
-    expect(button.getAttribute('aria-keyshortcuts')).toBe('Ctrl+S');
-    action.destroy?.();
-  });
-
-  it('should keep no aria-keyshortcuts when update() is called on a no-shortcut action', () => {
-    const action = activateKeyShortcuts(button);
-
-    /** @type {any} */ (action).update('Ctrl+Z'); // original shortcuts was '' so still none
-    expect(button.getAttribute('aria-keyshortcuts')).toBeNull();
-    action.destroy?.();
+    cleanup?.();
   });
 
   it('should trigger click on element when matching shortcut key is pressed', () => {
@@ -201,7 +184,7 @@ describe('activateKeyShortcuts', () => {
     const clickSpy = vi.fn();
 
     button.addEventListener('click', clickSpy);
-    activateKeyShortcuts(button, 'Ctrl+S');
+    activateKeyShortcuts('Ctrl+S')(button);
     globalThis.dispatchEvent(
       new KeyboardEvent('keydown', { code: 'KeyS', ctrlKey: true, bubbles: true }),
     );
@@ -213,7 +196,7 @@ describe('activateKeyShortcuts', () => {
     const clickSpy = vi.fn();
 
     button.addEventListener('click', clickSpy);
-    activateKeyShortcuts(button, 'Ctrl+S');
+    activateKeyShortcuts('Ctrl+S')(button);
     globalThis.dispatchEvent(
       new KeyboardEvent('keydown', { code: 'KeyZ', ctrlKey: true, bubbles: true }),
     );
@@ -227,7 +210,7 @@ describe('activateKeyShortcuts', () => {
     const clickSpy = vi.fn();
 
     button.addEventListener('click', clickSpy);
-    activateKeyShortcuts(button, 'Ctrl+S');
+    activateKeyShortcuts('Ctrl+S')(button);
     globalThis.dispatchEvent(
       new KeyboardEvent('keydown', { code: 'KeyS', ctrlKey: true, bubbles: true }),
     );
@@ -236,7 +219,7 @@ describe('activateKeyShortcuts', () => {
 
   it('should not trigger click when the event code is empty', () => {
     Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => document.body });
-    activateKeyShortcuts(button, 'Ctrl+S');
+    activateKeyShortcuts('Ctrl+S')(button);
 
     const clickSpy = vi.fn();
 
@@ -258,7 +241,7 @@ describe('activateKeyShortcuts', () => {
     const removePropertySpy = vi.spyOn(button.style, 'removeProperty');
 
     button.addEventListener('click', clickSpy);
-    activateKeyShortcuts(button, 'Ctrl+S');
+    activateKeyShortcuts('Ctrl+S')(button);
     globalThis.dispatchEvent(
       new KeyboardEvent('keydown', { code: 'KeyS', ctrlKey: true, bubbles: true }),
     );
@@ -289,10 +272,10 @@ describe('activateKeyShortcuts - Accel on macOS', () => {
 
       document.body.appendChild(btn);
 
-      const action = freshActivate(btn, 'Accel+S');
+      const cleanup = freshActivate('Accel+S')(btn);
 
       expect(btn.getAttribute('aria-keyshortcuts')).toBe('Meta+S');
-      action.destroy?.();
+      cleanup?.();
       btn.remove();
     } finally {
       if (origDescriptor) {

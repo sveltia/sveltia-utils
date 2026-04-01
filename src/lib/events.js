@@ -1,5 +1,5 @@
 /**
- * @import { ActionReturn } from 'svelte/action';
+ * @import { Attachment } from 'svelte/attachments';
  */
 
 /** @type {boolean | undefined} */
@@ -69,86 +69,66 @@ const matchesShortcuts = (event, shortcuts) => {
 
 /**
  * Activate keyboard shortcuts.
- * @param {(HTMLInputElement | HTMLButtonElement)} element Element.
  * @param {string} [shortcuts] Keyboard shortcuts like `A` or `Accel+S` to focus and click the text
  * field or button. Multiple shortcuts can be defined space-separated. The `Accel` modifier will be
  * replaced with `Ctrl` on Windows/Linux and `Command` on macOS.
- * @returns {ActionReturn} Actions.
+ * @returns {Attachment<HTMLInputElement | HTMLButtonElement>} Svelte attachment to deactivate the
+ * shortcuts.
  */
-const activateKeyShortcuts = (element, shortcuts = '') => {
-  /** @type {string | undefined} */
-  let platformKeyShortcuts;
+const activateKeyShortcuts = (shortcuts = '') => {
+  const platformKeyShortcuts = shortcuts
+    ? shortcuts.replace(/\bAccel\b/g, isMac() ? 'Meta' : 'Ctrl')
+    : undefined;
 
-  /**
-   * Handle the event.
-   * @param {KeyboardEvent} event `keydown` event.
-   */
-  const handler = (event) => {
-    const { disabled, offsetParent } = element;
+  if (!platformKeyShortcuts) {
+    return () => {};
+  }
 
-    // Check shortcut match and visibility first — no layout reflow until needed
-    if (!offsetParent || !platformKeyShortcuts || !matchesShortcuts(event, platformKeyShortcuts)) {
-      return;
-    }
+  return (element) => {
+    /**
+     * Handle the event.
+     * @param {KeyboardEvent} event `keydown` event.
+     */
+    const handler = (event) => {
+      const { disabled, offsetParent } = element;
 
-    const { top, left } = element.getBoundingClientRect();
+      if (!offsetParent || !matchesShortcuts(event, platformKeyShortcuts)) {
+        return;
+      }
 
-    if (disabled) {
-      // Make sure `elementsFromPoint()` works as expected
-      element.style.setProperty('pointer-events', 'auto');
-    }
+      const { top, left } = element.getBoundingClientRect();
 
-    // Check if the element is clickable (not behind a modal dialog)
-    if (document.elementsFromPoint(left + 4, top + 4).includes(element)) {
+      if (disabled) {
+        // Make sure `elementsFromPoint()` works as expected
+        element.style.setProperty('pointer-events', 'auto');
+      }
+
+      // Check if the element is clickable (not behind a modal dialog)
+      const isClickable = document.elementsFromPoint(left + 4, top + 4).includes(element);
+
+      if (disabled) {
+        element.style.removeProperty('pointer-events');
+      }
+
+      if (!isClickable) {
+        return;
+      }
+
       event.preventDefault();
 
-      // Trigger click only when the element is enabled
       if (!disabled) {
         element.focus();
         element.click();
       }
-    }
+    };
 
-    if (disabled) {
-      element.style.removeProperty('pointer-events');
-    }
-  };
+    globalThis.addEventListener('keydown', handler, { capture: true });
+    element.setAttribute('aria-keyshortcuts', platformKeyShortcuts);
 
-  /**
-   * Remove the event listener.
-   */
-  const removeListener = () => {
-    globalThis.removeEventListener('keydown', handler, { capture: true });
-    element.removeAttribute('aria-keyshortcuts');
-  };
-
-  /**
-   * Add the event listener.
-   */
-  const addListener = () => {
-    platformKeyShortcuts = shortcuts
-      ? shortcuts.replace(/\bAccel\b/g, isMac() ? 'Meta' : 'Ctrl')
-      : undefined;
-
-    if (platformKeyShortcuts) {
-      globalThis.addEventListener('keydown', handler, { capture: true });
-      element.setAttribute('aria-keyshortcuts', platformKeyShortcuts);
-    }
-  };
-
-  addListener();
-
-  return {
-    // eslint-disable-next-line jsdoc/require-jsdoc, no-shadow, no-unused-vars
-    update(shortcuts) {
-      removeListener();
-      addListener();
-    },
-
-    // eslint-disable-next-line jsdoc/require-jsdoc
-    destroy() {
-      removeListener();
-    },
+    return () => {
+      globalThis.removeEventListener('keydown', handler, { capture: true });
+      element.removeAttribute('aria-keyshortcuts');
+    };
   };
 };
 
