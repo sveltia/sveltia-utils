@@ -127,9 +127,25 @@ const scanFiles = async ({ items }, { accept } = {}) => {
           },
         );
       } else {
-        /** @type {FileSystemDirectoryEntry} */ (entry).createReader().readEntries((entries) => {
-          resolve(/** @type {Promise<File[]>} */ (Promise.all(entries.map(readEntry))));
-        });
+        const reader = /** @type {FileSystemDirectoryEntry} */ (entry).createReader();
+        /** @type {FileSystemEntry[]} */
+        const allEntries = [];
+
+        /**
+         * Read all entries from the directory by repeatedly calling `readEntries` until empty.
+         */
+        const readAll = () => {
+          reader.readEntries((entries) => {
+            if (entries.length) {
+              allEntries.push(...entries);
+              readAll();
+            } else {
+              resolve(/** @type {Promise<File[]>} */ (Promise.all(allEntries.map(readEntry))));
+            }
+          });
+        };
+
+        readAll();
       }
     });
 
@@ -165,12 +181,19 @@ const getDataURL = async (input) => {
   const blob = typeof input === 'string' ? new Blob([input], { type: 'text/plain' }) : input;
   const reader = new FileReader();
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     /**
      * Return the result once the content is read.
      */
     reader.onload = () => {
       resolve(/** @type {string} */ (reader.result));
+    };
+
+    /**
+     * Reject the promise when the file read fails.
+     */
+    reader.onerror = () => {
+      reject(reader.error);
     };
 
     reader.readAsDataURL(blob);

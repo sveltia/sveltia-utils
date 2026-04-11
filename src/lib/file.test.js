@@ -7,6 +7,7 @@ import {
   encodeBase64,
   encodeFilePath,
   getBlobRegex,
+  getDataURL,
   getPathInfo,
   isTextFileType,
   isValidFileType,
@@ -187,6 +188,26 @@ describe('Test getPathInfo()', () => {
       filename: '.htaccess',
       extension: undefined,
     });
+  });
+});
+
+describe('Test getDataURL()', () => {
+  test('rejects when FileReader fires an error', async () => {
+    const error = new DOMException('Read error', 'NotReadableError');
+    const OriginalFileReader = globalThis.FileReader;
+
+    /** @type {any} */ (globalThis).FileReader = class {
+      readAsDataURL() {
+        /** @type {any} */ (this).error = error;
+        /** @type {any} */ (this).onerror?.();
+      }
+    };
+
+    try {
+      await expect(getDataURL(new Blob(['test']))).rejects.toBe(error);
+    } finally {
+      /** @type {any} */ (globalThis).FileReader = OriginalFileReader;
+    }
   });
 });
 
@@ -456,9 +477,20 @@ describe('Test scanFiles()', () => {
   const makeDirEntry = (name, children) => ({
     name,
     isFile: false,
-    createReader: () => ({
-      readEntries: (/** @type {(entries: object[]) => void} */ cb) => cb(children),
-    }),
+    createReader: () => {
+      let called = false;
+
+      return {
+        readEntries: (/** @type {(entries: object[]) => void} */ cb) => {
+          if (!called) {
+            called = true;
+            cb(children);
+          } else {
+            cb([]);
+          }
+        },
+      };
+    },
   });
 
   test('returns files sorted by name', async () => {
