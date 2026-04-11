@@ -189,3 +189,91 @@ describe('Test IndexedDB', () => {
     expect(await db2.get(1)).toEqual({ id: 1, year: 2023, title: 'one' });
   });
 });
+
+describe('Error paths', () => {
+  test('rejects when indexedDB.open fails', async () => {
+    const error = new DOMException('Open failed', 'UnknownError');
+    const originalIndexedDB = globalThis.indexedDB;
+
+    /** @type {any} */ (globalThis).indexedDB = {
+      open() {
+        const request = /** @type {any} */ ({
+          onupgradeneeded: null,
+          onsuccess: null,
+          onerror: null,
+        });
+
+        setTimeout(() => {
+          Object.defineProperty(request, 'error', { value: error });
+          request.onerror?.();
+        }, 0);
+
+        return request;
+      },
+    };
+
+    const db = new IndexedDB('fail-open', 'fail-store');
+
+    try {
+      await expect(db.keys()).rejects.toBe(error);
+    } finally {
+      /** @type {any} */ (globalThis).indexedDB = originalIndexedDB;
+    }
+  });
+
+  test('rejects when a transaction errors', async () => {
+    const error = new DOMException('Transaction failed', 'UnknownError');
+    const originalIndexedDB = globalThis.indexedDB;
+    let txCallCount = 0;
+
+    const fakeDB = {
+      version: 1,
+      objectStoreNames: { contains: () => true },
+      onversionchange: null,
+      close() {},
+      transaction() {
+        txCallCount += 1;
+
+        // First call is from #getDatabase() to check existing indexes
+        if (txCallCount === 1) {
+          return { objectStore: () => ({ indexNames: { contains: () => true } }) };
+        }
+
+        // Second call is from #query — fire onerror to trigger rejection
+        const tx = /** @type {any} */ ({
+          objectStore: () => ({ getAllKeys: () => ({}) }),
+          get error() {
+            return error;
+          },
+        });
+
+        setTimeout(() => tx.onerror?.(), 0);
+
+        return tx;
+      },
+    };
+
+    const fakeRequest = /** @type {any} */ ({
+      result: fakeDB,
+      onupgradeneeded: null,
+      onsuccess: null,
+      onerror: null,
+    });
+
+    /** @type {any} */ (globalThis).indexedDB = {
+      open() {
+        setTimeout(() => fakeRequest.onsuccess?.(), 0);
+
+        return fakeRequest;
+      },
+    };
+
+    const db = new IndexedDB('tx-fail', 'tx-store');
+
+    try {
+      await expect(db.keys()).rejects.toBe(error);
+    } finally {
+      /** @type {any} */ (globalThis).indexedDB = originalIndexedDB;
+    }
+  });
+});

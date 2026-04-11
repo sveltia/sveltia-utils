@@ -61,7 +61,7 @@ export default class IndexedDB {
    * @returns {Promise<IDBDatabase>} Database.
    */
   async #openDatabase(version) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const request = globalThis.indexedDB.open(this.#databaseName, version);
 
       request.onupgradeneeded = () => {
@@ -81,6 +81,10 @@ export default class IndexedDB {
 
       request.onsuccess = () => {
         resolve(request.result);
+      };
+
+      request.onerror = () => {
+        reject(request.error);
       };
     });
   }
@@ -120,17 +124,23 @@ export default class IndexedDB {
   /**
    * Create a database if not yet initialized, then execute the given function over the store.
    * @param {(store: IDBObjectStore) => IDBRequest | void} getRequest Function to be executed.
+   * @param {object} [options] Options.
+   * @param {IDBTransactionMode} [options.mode] Transaction mode. Default: `readonly`.
    * @returns {Promise<any | void>} Result.
    */
-  async #query(getRequest) {
+  async #query(getRequest, { mode = 'readonly' } = {}) {
     this.#database ??= await this.#getDatabase();
 
     const database = /** @type {IDBDatabase} */ (this.#database);
     const storeName = this.#storeName;
-    const transaction = database.transaction(storeName, 'readwrite');
+    const transaction = database.transaction(storeName, mode);
     const request = getRequest(transaction.objectStore(storeName));
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      transaction.onerror = () => {
+        reject(transaction.error);
+      };
+
       if (request) {
         request.onsuccess = () => {
           resolve(request.result);
@@ -151,7 +161,7 @@ export default class IndexedDB {
    * @returns {Promise<any>} Key.
    */
   async set(key, value) {
-    return this.#query((store) => store.put(value, key));
+    return this.#query((store) => store.put(value, key), { mode: 'readwrite' });
   }
 
   /**
@@ -160,7 +170,7 @@ export default class IndexedDB {
    * @returns {Promise<any>} Key.
    */
   async put(value) {
-    return this.#query((store) => store.put(value));
+    return this.#query((store) => store.put(value), { mode: 'readwrite' });
   }
 
   /**
@@ -169,11 +179,14 @@ export default class IndexedDB {
    * @returns {Promise<any>} Key.
    */
   async saveEntries(records) {
-    return this.#query((store) => {
-      records.forEach(([key, value]) => {
-        store.put(value, key);
-      });
-    });
+    return this.#query(
+      (store) => {
+        records.forEach(([key, value]) => {
+          store.put(value, key);
+        });
+      },
+      { mode: 'readwrite' },
+    );
   }
 
   /**
@@ -206,9 +219,24 @@ export default class IndexedDB {
    * @returns {Promise<[any, any][]>} Key/value pairs.
    */
   async entries() {
-    const [keys, values] = await Promise.all([this.keys(), this.values()]);
+    return new Promise((resolve) => {
+      this.#query((store) => {
+        const request = store.openCursor();
+        /** @type {[any, any][]} */
+        const entries = [];
 
-    return keys.map((key, index) => [key, values[index]]);
+        request.onsuccess = () => {
+          const cursor = request.result;
+
+          if (cursor) {
+            entries.push([cursor.key, cursor.value]);
+            cursor.continue();
+          } else {
+            resolve(entries);
+          }
+        };
+      });
+    });
   }
 
   /**
@@ -300,7 +328,7 @@ export default class IndexedDB {
    * @returns {Promise<void>} Result.
    */
   async delete(key) {
-    await this.#query((store) => store.delete(key));
+    await this.#query((store) => store.delete(key), { mode: 'readwrite' });
   }
 
   /**
@@ -309,11 +337,14 @@ export default class IndexedDB {
    * @returns {Promise<void>} Result.
    */
   async deleteEntries(keys) {
-    await this.#query((store) => {
-      keys.forEach((key) => {
-        store.delete(key);
-      });
-    });
+    await this.#query(
+      (store) => {
+        keys.forEach((key) => {
+          store.delete(key);
+        });
+      },
+      { mode: 'readwrite' },
+    );
   }
 
   /**
@@ -321,6 +352,6 @@ export default class IndexedDB {
    * @returns {Promise<void>} Result.
    */
   async clear() {
-    await this.#query((store) => store.clear());
+    await this.#query((store) => store.clear(), { mode: 'readwrite' });
   }
 }
