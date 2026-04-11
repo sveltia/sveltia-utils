@@ -8,10 +8,5 @@ engineStrict: true
 
 minimumReleaseAge: 1440
 
-minimumReleaseAgeExclude:
-  - devalue
-  - svelte
-  - "@sveltejs/*"
-
 overrides:
   cookie@<0.7.0: ">=0.7.0"
