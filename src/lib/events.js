@@ -90,9 +90,9 @@ const activateKeyShortcuts = (shortcuts = '') => {
      * @param {KeyboardEvent} event `keydown` event.
      */
     const handler = (event) => {
-      const { disabled, offsetParent } = element;
+      const { disabled } = element;
 
-      if (!offsetParent || !matchesShortcuts(event, platformKeyShortcuts)) {
+      if (!element.getClientRects().length || !matchesShortcuts(event, platformKeyShortcuts)) {
         return;
       }
 

@@ -178,7 +178,6 @@ describe('activateKeyShortcuts', () => {
   });
 
   it('should trigger click on element when matching shortcut key is pressed', () => {
-    Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => document.body });
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue(/** @type {any} */ ([button]));
 
     const clickSpy = vi.fn();
@@ -204,7 +203,6 @@ describe('activateKeyShortcuts', () => {
   });
 
   it('should not trigger click when element is not in elementsFromPoint result', () => {
-    Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => document.body });
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue(/** @type {any} */ ([]));
 
     const clickSpy = vi.fn();
@@ -218,7 +216,6 @@ describe('activateKeyShortcuts', () => {
   });
 
   it('should not trigger click when the event code is empty', () => {
-    Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => document.body });
     activateKeyShortcuts('Ctrl+S')(button);
 
     const clickSpy = vi.fn();
@@ -231,8 +228,36 @@ describe('activateKeyShortcuts', () => {
     expect(clickSpy).not.toHaveBeenCalled();
   });
 
+  it('should trigger click on a fixed-position element (null offsetParent but has client rects)', () => {
+    // position:fixed elements have offsetParent === null in real browsers; the fix uses
+    // getClientRects() instead, which returns rects for visible fixed elements.
+    Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => null });
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue(/** @type {any} */ ([button]));
+
+    const clickSpy = vi.fn();
+
+    button.addEventListener('click', clickSpy);
+    activateKeyShortcuts('Ctrl+S')(button);
+    globalThis.dispatchEvent(
+      new KeyboardEvent('keydown', { code: 'KeyS', ctrlKey: true, bubbles: true }),
+    );
+    expect(clickSpy).toHaveBeenCalledOnce();
+  });
+
+  it('should not trigger click when element has no client rects (e.g. display:none)', () => {
+    vi.spyOn(button, 'getClientRects').mockReturnValue(/** @type {any} */ ({ length: 0 }));
+
+    const clickSpy = vi.fn();
+
+    button.addEventListener('click', clickSpy);
+    activateKeyShortcuts('Ctrl+S')(button);
+    globalThis.dispatchEvent(
+      new KeyboardEvent('keydown', { code: 'KeyS', ctrlKey: true, bubbles: true }),
+    );
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
   it('should manipulate pointer-events for disabled button but not trigger click', () => {
-    Object.defineProperty(button, 'offsetParent', { configurable: true, get: () => document.body });
     vi.spyOn(document, 'elementsFromPoint').mockReturnValue(/** @type {any} */ ([button]));
     button.disabled = true;
 
