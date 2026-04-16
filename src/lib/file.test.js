@@ -82,6 +82,38 @@ describe('Text isValidFileType()', () => {
     expect(isValidFileType(file, ['image/*'])).toBe(false);
     expect(isValidFileType(file, ['text/plain', 'application/yaml'])).toBe(false);
   });
+
+  test('case-insensitive file name extension', () => {
+    // Uppercase extension in file name
+    expect(isValidFileType(new File([], 'image.PNG', { type: 'image/png' }), ['.png'])).toBe(true);
+    expect(isValidFileType(new File([], 'image.JPG', { type: 'image/jpeg' }), ['.jpg'])).toBe(true);
+    expect(isValidFileType(new File([], 'IMAGE.PNG', { type: 'image/png' }), ['.png'])).toBe(true);
+
+    // Uppercase extension in specifier
+    expect(isValidFileType(new File([], 'image.png', { type: 'image/png' }), ['.PNG'])).toBe(true);
+    expect(isValidFileType(new File([], 'image.jpg', { type: 'image/jpeg' }), ['.JPG'])).toBe(true);
+
+    // Both uppercase
+    expect(isValidFileType(new File([], 'image.PNG', { type: 'image/png' }), ['.PNG'])).toBe(true);
+    expect(
+      isValidFileType(new File([], 'image.JPG', { type: 'image/jpeg' }), ['.JPG', '.PNG']),
+    ).toBe(true);
+  });
+
+  test('case-insensitive MIME type specifier', () => {
+    // Uppercase MIME type in specifier
+    expect(isValidFileType(new File([], 'image.png', { type: 'image/png' }), ['IMAGE/PNG'])).toBe(
+      true,
+    );
+    expect(isValidFileType(new File([], 'image.png', { type: 'image/png' }), ['Image/*'])).toBe(
+      true,
+    );
+
+    // Mixed case
+    expect(isValidFileType(new File([], 'image.png', { type: 'image/png' }), ['Image/PNG'])).toBe(
+      true,
+    );
+  });
 });
 
 describe('Test getPathInfo()', () => {

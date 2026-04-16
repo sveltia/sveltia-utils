@@ -79,8 +79,10 @@ const isValidFileType = (file, specifiers) => {
   }
 
   return specifiers.some((specifier) => {
+    specifier = specifier.toLowerCase();
+
     if (specifier.startsWith('.')) {
-      return file.name.endsWith(specifier);
+      return file.name.toLowerCase().endsWith(specifier);
     }
 
     const [type, subtype] = specifier.split('/');
