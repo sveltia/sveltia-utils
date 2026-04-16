@@ -276,4 +276,37 @@ describe('Error paths', () => {
       /** @type {any} */ (globalThis).indexedDB = originalIndexedDB;
     }
   });
+
+  test('entries(), find(), findLast(), filter() reject when database fails to open', async () => {
+    const error = new DOMException('Open failed', 'UnknownError');
+    const originalIndexedDB = globalThis.indexedDB;
+
+    /** @type {any} */ (globalThis).indexedDB = {
+      open() {
+        const request = /** @type {any} */ ({
+          onupgradeneeded: null,
+          onsuccess: null,
+          onerror: null,
+        });
+
+        setTimeout(() => {
+          Object.defineProperty(request, 'error', { value: error });
+          request.onerror?.();
+        }, 0);
+
+        return request;
+      },
+    };
+
+    const db = new IndexedDB('fail-cursor', 'fail-store');
+
+    try {
+      await expect(db.entries()).rejects.toBe(error);
+      await expect(db.find()).rejects.toBe(error);
+      await expect(db.findLast()).rejects.toBe(error);
+      await expect(db.filter()).rejects.toBe(error);
+    } finally {
+      /** @type {any} */ (globalThis).indexedDB = originalIndexedDB;
+    }
+  });
 });

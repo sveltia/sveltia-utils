@@ -219,7 +219,7 @@ export default class IndexedDB {
    * @returns {Promise<[any, any][]>} Key/value pairs.
    */
   async entries() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.#query((store) => {
         const request = store.openCursor();
         /** @type {[any, any][]} */
@@ -235,7 +235,7 @@ export default class IndexedDB {
             resolve(entries);
           }
         };
-      });
+      }).catch(reject);
     });
   }
 
@@ -256,7 +256,7 @@ export default class IndexedDB {
     direction = 'next',
     multiple = false,
   }) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.#query((store) => {
         const request = (index ? store.index(index) : store).openCursor(query, direction);
         /** @type {any[]} */
@@ -282,7 +282,7 @@ export default class IndexedDB {
             resolve(multiple ? records : undefined);
           }
         };
-      });
+      }).catch(reject);
     });
   }
 
