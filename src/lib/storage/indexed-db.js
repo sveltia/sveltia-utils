@@ -12,6 +12,13 @@ export default class IndexedDB {
   #database;
 
   /**
+   * In-flight promise that resolves to the opened database. Used to prevent concurrent callers from
+   * opening (and potentially version-bumping) the database in parallel.
+   * @type {Promise<IDBDatabase> | undefined}
+   */
+  #databasePromise;
+
+  /**
    * Database name in use.
    * @type {string}
    */
@@ -129,7 +136,12 @@ export default class IndexedDB {
    * @returns {Promise<any | void>} Result.
    */
   async #query(getRequest, { mode = 'readonly' } = {}) {
-    this.#database ??= await this.#getDatabase();
+    if (!this.#database) {
+      // Cache the in-flight promise so concurrent callers share a single DB open.
+      this.#databasePromise ??= this.#getDatabase();
+      this.#database = await this.#databasePromise;
+      this.#databasePromise = undefined;
+    }
 
     const database = /** @type {IDBDatabase} */ (this.#database);
     const storeName = this.#storeName;
@@ -141,7 +153,26 @@ export default class IndexedDB {
         reject(transaction.error);
       };
 
-      if (request) {
+      transaction.onabort = () => {
+        reject(transaction.error);
+      };
+
+      if (mode === 'readwrite') {
+        // For writes, resolve on transaction commit (not on request success) so the caller is only
+        // notified once the data is durably persisted.
+        /** @type {any} */
+        let result;
+
+        if (request) {
+          request.onsuccess = () => {
+            result = request.result;
+          };
+        }
+
+        transaction.oncomplete = () => {
+          resolve(result);
+        };
+      } else if (request) {
         request.onsuccess = () => {
           resolve(request.result);
         };

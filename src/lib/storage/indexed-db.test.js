@@ -309,4 +309,88 @@ describe('Error paths', () => {
       /** @type {any} */ (globalThis).indexedDB = originalIndexedDB;
     }
   });
+
+  test('rejects when a write transaction aborts', async () => {
+    const error = new DOMException('Aborted', 'AbortError');
+    const originalIndexedDB = globalThis.indexedDB;
+    let txCallCount = 0;
+
+    const fakeDB = {
+      version: 1,
+      objectStoreNames: { contains: () => true },
+      onversionchange: null,
+      close() {},
+      transaction() {
+        txCallCount += 1;
+
+        // First call is from #getDatabase() checking existing indexes
+        if (txCallCount === 1) {
+          return { objectStore: () => ({ indexNames: { contains: () => true } }) };
+        }
+
+        // Subsequent call is from #query — fire onabort to trigger rejection
+        const tx = /** @type {any} */ ({
+          objectStore: () => ({ put: () => ({}) }),
+          get error() {
+            return error;
+          },
+        });
+
+        setTimeout(() => tx.onabort?.(), 0);
+
+        return tx;
+      },
+    };
+
+    const fakeRequest = /** @type {any} */ ({
+      result: fakeDB,
+      onupgradeneeded: null,
+      onsuccess: null,
+      onerror: null,
+    });
+
+    /** @type {any} */ (globalThis).indexedDB = {
+      open() {
+        setTimeout(() => fakeRequest.onsuccess?.(), 0);
+
+        return fakeRequest;
+      },
+    };
+
+    const db = new IndexedDB('abort-fail', 'abort-store');
+
+    try {
+      await expect(db.set('k', 'v')).rejects.toBe(error);
+    } finally {
+      /** @type {any} */ (globalThis).indexedDB = originalIndexedDB;
+    }
+  });
+
+  test('concurrent first calls share a single database open', async () => {
+    // Before the fix, two concurrent calls would each invoke `#getDatabase()` and potentially
+    // bump the DB version independently. Now the in-flight promise is cached.
+    let openCallCount = 0;
+    const originalOpen = globalThis.indexedDB.open.bind(globalThis.indexedDB);
+
+    /** @type {any} */ (globalThis.indexedDB).open = (/** @type {any[]} */ ...args) => {
+      openCallCount += 1;
+
+      return /** @type {any} */ (originalOpen)(...args);
+    };
+
+    try {
+      const db = new IndexedDB('concurrent-open', 'concurrent-store');
+      const [k1, k2] = await Promise.all([db.keys(), db.keys()]);
+
+      expect(k1).toEqual([]);
+      expect(k2).toEqual([]);
+      // Each new IndexedDB instance calls open twice in #getDatabase (once to check indexes,
+      // and potentially once more to upgrade). The critical point: concurrent #query calls
+      // must NOT each trigger an independent #getDatabase sequence.
+      // Without the fix, we'd see ~4 open calls; with the fix, 2.
+      expect(openCallCount).toBeLessThanOrEqual(2);
+    } finally {
+      /** @type {any} */ (globalThis.indexedDB).open = originalOpen;
+    }
+  });
 });
