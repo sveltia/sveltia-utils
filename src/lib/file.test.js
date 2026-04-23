@@ -445,7 +445,7 @@ describe('Test saveFile()', () => {
     vi.restoreAllMocks();
   });
 
-  test('saves a File using its name', () => {
+  test('saves a File using its name', async () => {
     const link = { click: vi.fn(), href: '', download: '' };
 
     vi.spyOn(document, 'createElement').mockReturnValue(/** @type {any} */ (link));
@@ -458,6 +458,11 @@ describe('Test saveFile()', () => {
     expect(link.download).toEqual('photo.jpg');
     expect(link.href).toEqual('blob:mock');
     expect(link.click).toHaveBeenCalledOnce();
+    // `saveFile` revokes the object URL asynchronously to avoid cancelling the download in some
+    // browsers; wait a tick before asserting.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 10);
+    });
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock');
   });
 

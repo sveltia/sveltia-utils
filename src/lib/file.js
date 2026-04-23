@@ -161,18 +161,18 @@ const scanFiles = async ({ items }, { accept } = {}) => {
         }),
       )
     )
-      .flat(100000)
+      .flat(Infinity)
       .filter(Boolean)
   ).sort((a, b) => a.name.localeCompare(b.name));
 };
 
 /**
- * Read the given file as plaintext. On Windows, the result may include CRLF line breaks. Convert
- * any CRLF to LF to parse entries properly.
+ * Read the given file as plaintext. On Windows, the result may include CRLF line breaks, and some
+ * legacy files use lone CR. Convert any CRLF/CR to LF to parse entries properly.
  * @param {File | Blob} file File.
  * @returns {Promise<string>} Content.
  */
-const readAsText = async (file) => (await file.text()).replace(/\r\n/g, '\n');
+const readAsText = async (file) => (await file.text()).replace(/\r\n?/g, '\n');
 
 /**
  * Get the data URL of the given input.
@@ -237,7 +237,11 @@ const saveFile = (file, name) => {
   link.href = blobURL;
   link.click();
 
-  URL.revokeObjectURL(blobURL);
+  // Revoke asynchronously so the browser has time to initiate the download. Revoking synchronously
+  // can cancel the download in some browsers (e.g. Firefox/Safari).
+  globalThis.setTimeout(() => {
+    URL.revokeObjectURL(blobURL);
+  }, 0);
 };
 
 export {
