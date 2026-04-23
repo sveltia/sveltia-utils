@@ -20,26 +20,85 @@ const isMac = () => {
 const MODIFIER_KEYS = ['Ctrl', 'Meta', 'Alt', 'Shift'];
 
 /**
- * Whether the event matches the given keyboard shortcuts. Uses `KeyboardEvent.key` rather than
- * `KeyboardEvent.code` so that shortcuts work correctly on non-QWERTY layouts (Dvorak, AZERTY,
- * Colemak, etc.). `event.code` reflects the physical key position on a US QWERTY keyboard, while
- * `event.key` reflects the logical character produced by the user's active layout — which is what
- * shortcut strings are typically authored against.
+ * Shortcut tokens that correspond to a physical, layout- and modifier-stable `KeyboardEvent.code`
+ * value. Matching against `code` (rather than `key`) for these avoids two problems:
+ *
+ * 1. `event.key` for the Space bar is a single space character (`' '`), which is awkward to write
+ * in a shortcut string — the conventional token is `Space`.
+ * 2. `event.key` changes when Shift (or Alt/Option on macOS) is held: `Shift+1` produces `'!'` on
+ * US layout, `Alt+E` on macOS produces `'´'`, etc. Comparing against `code` keeps shortcuts like
+ * `Ctrl+Shift+1` or `Alt+ArrowUp` working as authored.
+ */
+const PHYSICAL_TOKENS = new Set([
+  'Space',
+  'Enter',
+  'Escape',
+  'Tab',
+  'Backspace',
+  'Delete',
+  'Insert',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  // Function keys F1–F24
+  ...Array.from({ length: 24 }, (_, i) => `F${i + 1}`),
+]);
+
+/**
+ * Determine whether a single (non-modifier) shortcut token matches a `KeyboardEvent`.
+ *
+ * Letters are compared against `event.key` (layout-aware: a Dvorak user pressing the physical
+ * QWERTY-`S` key produces `key: 'o'`, which should match `Ctrl+O`, not `Ctrl+S`). Named keys,
+ * function keys, and bare digits are compared against `event.code` (layout- and modifier-stable, so
+ * `Shift+1` matches even though `event.key` becomes `'!'`). Other characters fall back to
+ * `event.key`.
+ * @param {string} token A single key token from a shortcut string, e.g. `S`, `Space`, `1`, `/`.
+ * @param {KeyboardEvent} event The keyboard event.
+ * @returns {boolean} Whether the token matches the event.
+ */
+const tokenMatchesEvent = (token, event) => {
+  // Bare digit: match the physical digit row regardless of Shift (`Shift+1` vs `!`).
+  if (/^\d$/.test(token)) {
+    return event.code === `Digit${token}`;
+  }
+
+  // Named keys (Space, Enter, arrows, F-keys, …): match the stable `code`.
+  if (PHYSICAL_TOKENS.has(token)) {
+    return event.code === token;
+  }
+
+  // Everything else (letters, punctuation): compare case-insensitively against `event.key` so
+  // the user's active keyboard layout is respected.
+  return token.toLowerCase() === event.key.toLowerCase();
+};
+
+/**
+ * Whether the event matches the given keyboard shortcuts.
+ *
+ * Uses a hybrid of `KeyboardEvent.key` and `KeyboardEvent.code` so shortcuts work correctly on
+ * non-QWERTY layouts (Dvorak, AZERTY, Colemak, …) *and* with modifiers like Shift or Alt that
+ * otherwise change `event.key` (`Shift+1` → `'!'`, `Alt+E` on macOS → `'´'`, etc.). See
+ * {@link tokenMatchesEvent} for the matching rules.
  * @param {KeyboardEvent} event `keydown` or `keypress` event.
- * @param {string} shortcuts Keyboard shortcuts like `A` or `Ctrl+S`.
+ * @param {string} shortcuts Keyboard shortcuts like `A`, `Ctrl+S`, `Accel+Space`, `Shift+1`.
  * @returns {boolean} Result.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_code_values
  * @see https://w3c.github.io/aria/#aria-keyshortcuts
  */
 const matchesShortcuts = (event, shortcuts) => {
-  const { ctrlKey, metaKey, altKey, shiftKey, key } = event;
+  const { ctrlKey, metaKey, altKey, shiftKey, key, code } = event;
 
-  // The `key` property can be an empty string in some edge cases (e.g. dead keys mid-composition)
-  if (!key) {
+  // Both `key` and `code` can be empty in edge cases (e.g. dead keys mid-composition).
+  if (!key && !code) {
     return false;
   }
 
-  const eventKey = key.toLowerCase();
   const resolvedShortcuts = shortcuts.replace(/\bAccel\b/g, isMac() ? 'Meta' : 'Ctrl');
 
   return resolvedShortcuts.split(/\s+/).some((shortcut) => {
@@ -67,7 +126,7 @@ const matchesShortcuts = (event, shortcuts) => {
 
     return keys
       .filter((_key) => !MODIFIER_KEYS.includes(_key))
-      .every((_key) => _key.toLowerCase() === eventKey);
+      .every((_key) => tokenMatchesEvent(_key, event));
   });
 };
 
