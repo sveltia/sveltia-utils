@@ -31,9 +31,11 @@ const truncate = (string, max, { ellipsis = '…' } = {}) => {
 const stripSlashes = (string) => string.replace(/^\/+/, '').replace(/\/+$/, '');
 
 /**
- * Remove all HTML tags from the given string so it’s safe to use in the app.
+ * Remove all HTML tags from the given string, returning only the text content.
+ * Security note: the returned value is plain text, not HTML. It is safe to insert via
+ * `textContent`, but if you re-inject it via `innerHTML` you must re-escape it first to avoid XSS.
  * @param {string} string Original string that may include tags, e.g. `<div>Hello</div>`.
- * @returns {string} Sanitized string, e.g. `Hello`.
+ * @returns {string} Text content, e.g. `Hello`.
  */
 const stripTags = (string) =>
   /** @type {string} */ (new DOMParser().parseFromString(string, 'text/html').body.textContent);
