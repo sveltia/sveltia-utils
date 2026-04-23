@@ -18,24 +18,28 @@ const isMac = () => {
 };
 
 const MODIFIER_KEYS = ['Ctrl', 'Meta', 'Alt', 'Shift'];
-const CODE_RE = /^(?:Digit|Key)(.)$/;
 
 /**
- * Whether the event matches the given keyboard shortcuts.
+ * Whether the event matches the given keyboard shortcuts. Uses `KeyboardEvent.key` rather than
+ * `KeyboardEvent.code` so that shortcuts work correctly on non-QWERTY layouts (Dvorak, AZERTY,
+ * Colemak, etc.). `event.code` reflects the physical key position on a US QWERTY keyboard, while
+ * `event.key` reflects the logical character produced by the user's active layout — which is what
+ * shortcut strings are typically authored against.
  * @param {KeyboardEvent} event `keydown` or `keypress` event.
  * @param {string} shortcuts Keyboard shortcuts like `A` or `Ctrl+S`.
  * @returns {boolean} Result.
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values
  * @see https://w3c.github.io/aria/#aria-keyshortcuts
  */
 const matchesShortcuts = (event, shortcuts) => {
-  const { ctrlKey, metaKey, altKey, shiftKey, code } = event;
+  const { ctrlKey, metaKey, altKey, shiftKey, key } = event;
 
-  // The `code` property can be `undefined` in some cases
-  if (!code) {
+  // The `key` property can be an empty string in some edge cases (e.g. dead keys mid-composition)
+  if (!key) {
     return false;
   }
 
-  const key = code.replace(CODE_RE, '$1');
+  const eventKey = key.toLowerCase();
   const resolvedShortcuts = shortcuts.replace(/\bAccel\b/g, isMac() ? 'Meta' : 'Ctrl');
 
   return resolvedShortcuts.split(/\s+/).some((shortcut) => {
@@ -63,7 +67,7 @@ const matchesShortcuts = (event, shortcuts) => {
 
     return keys
       .filter((_key) => !MODIFIER_KEYS.includes(_key))
-      .every((_key) => _key.toUpperCase() === key.toUpperCase());
+      .every((_key) => _key.toLowerCase() === eventKey);
   });
 };
 
@@ -81,7 +85,9 @@ const activateKeyShortcuts = (shortcuts = '') => {
     : undefined;
 
   if (!platformKeyShortcuts) {
-    return () => {};
+    // Return a no-op attachment so the return value always matches the `Attachment` shape (a
+    // function that takes an element and returns a cleanup function).
+    return () => () => {};
   }
 
   return (element) => {

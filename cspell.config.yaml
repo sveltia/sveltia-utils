@@ -18,6 +18,8 @@ ignorePaths:
   - data/**/*.json
   - src/**/*.test.js
 words:
+  - AZERTY
+  - Colemak
   - colour
   - colours
   - cooldown
