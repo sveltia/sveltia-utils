@@ -12,7 +12,7 @@ const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
  */
 const generateUUID = (length) => {
-  const uuid = /** @type {string} */ globalThis.crypto.randomUUID();
+  const uuid = globalThis.crypto.randomUUID();
 
   // Last 12 characters
   if (length === 'short') {
