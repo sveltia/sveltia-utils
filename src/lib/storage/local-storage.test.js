@@ -95,4 +95,35 @@ describe('Test LocalStorage', () => {
     await LocalStorage.clear();
     expect(await LocalStorage.keys()).toEqual([]);
   });
+
+  test('set(key, undefined) deletes the key instead of storing "undefined"', async () => {
+    await LocalStorage.set('maybe', 'value');
+    expect(await LocalStorage.get('maybe')).toEqual('value');
+
+    await LocalStorage.set('maybe', undefined);
+    expect(await LocalStorage.get('maybe')).toBeNull();
+    expect(await LocalStorage.keys()).not.toContain('maybe');
+  });
+
+  test('get returns null for corrupt / foreign JSON instead of throwing', async () => {
+    // Simulate a foreign script writing a non-JSON string to the same origin
+    globalThis.localStorage.setItem('foreign', 'not json {');
+    await expect(LocalStorage.get('foreign')).resolves.toBeNull();
+  });
+
+  test('values() and entries() tolerate corrupt entries', async () => {
+    await LocalStorage.clear();
+    await LocalStorage.set('good', { a: 1 });
+    globalThis.localStorage.setItem('bad', 'not json {');
+
+    const values = await LocalStorage.values();
+
+    expect(values).toEqual(expect.arrayContaining([{ a: 1 }, null]));
+
+    const entries = await LocalStorage.entries();
+    const entryMap = new Map(entries);
+
+    expect(entryMap.get('good')).toEqual({ a: 1 });
+    expect(entryMap.get('bad')).toBeNull();
+  });
 });
