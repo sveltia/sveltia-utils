@@ -46,6 +46,11 @@ const stripTags = (string) =>
  * @returns {boolean} Result.
  */
 const isURL = (string) => {
+  // Check for newlines and spaces, which are not allowed in URLs
+  if (/\s/.test(string)) {
+    return false;
+  }
+
   // @ts-ignore
   if (typeof URL.canParse === 'function') {
     // @ts-ignore

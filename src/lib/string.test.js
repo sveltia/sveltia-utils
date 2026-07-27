@@ -139,6 +139,15 @@ describe('Test isURL()', () => {
     expect(isURL('just text')).toBe(false);
   });
 
+  test('URLs with whitespace are invalid', () => {
+    expect(isURL('https://example.com ')).toBe(false);
+    expect(isURL(' https://example.com')).toBe(false);
+    expect(isURL('https://example .com')).toBe(false);
+    expect(isURL('https://example.com\nhttps://example.com')).toBe(false);
+    expect(isURL('https://example.com\t')).toBe(false);
+    expect(isURL('\nhttps://example.com')).toBe(false);
+  });
+
   test('fallback without URL.canParse', () => {
     const original = URL.canParse;
 
@@ -146,6 +155,8 @@ describe('Test isURL()', () => {
     URL.canParse = undefined;
     expect(isURL('https://example.com')).toBe(true);
     expect(isURL('not a url')).toBe(false);
+    expect(isURL('example.com')).toBe(false);
+    expect(isURL('https://example.com ')).toBe(false);
     URL.canParse = original;
   });
 });
