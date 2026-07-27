@@ -27,6 +27,8 @@ words:
   - deproxified
   - esbuild
   - espree
+  - GHSA
+  - Ghsas
   - IndexedDB
   - jsdoc
   - nocheck
