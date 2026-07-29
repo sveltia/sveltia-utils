@@ -2,6 +2,14 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 const loadModule = () => import('./element.js');
 
+describe('Test removeVisibilityResolver()', () => {
+  test('is exported', async () => {
+    const module = await loadModule();
+
+    expect(module.removeVisibilityResolver).toBeDefined();
+  });
+});
+
 /**
  * Build a minimal IntersectionObserver stub for the visibility tests.
  * @param {object} [options] Stub hooks.
@@ -149,12 +157,6 @@ describe('Test waitForVisibility()', () => {
     const { waitForVisibility } = await loadModule();
 
     await expect(waitForVisibility(element)).resolves.toBeUndefined();
-  });
-
-  test('returns undefined when element is not provided', async () => {
-    const { waitForVisibility } = await loadModule();
-
-    expect(waitForVisibility(undefined)).toBeUndefined();
   });
 
   test('returns a Promise when element is provided', async () => {

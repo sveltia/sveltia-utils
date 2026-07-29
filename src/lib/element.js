@@ -1,6 +1,6 @@
 import { generateUUID } from './crypto.js';
 
-/** @type {Map<HTMLElement, () => void> | undefined} */
+/** @type {WeakMap<HTMLElement, () => void> | undefined} */
 let visibilityResolvers;
 /** @type {IntersectionObserver | undefined} */
 let sharedVisibilityObserver;
@@ -11,6 +11,15 @@ let sharedVisibilityObserver;
  * @returns {string} Generated ID.
  */
 const generateElementId = (prefix = 'e', length = 7) => [prefix, generateUUID(length)].join('-');
+
+/**
+ * Remove the visibility resolver for the given element and stop observing it.
+ * @param {HTMLElement} element Element to remove the resolver for.
+ */
+const removeVisibilityResolver = (element) => {
+  visibilityResolvers?.delete(element);
+  sharedVisibilityObserver?.unobserve(element);
+};
 
 /**
  * Create or reuse a shared observer to avoid registering one IntersectionObserver per element. This
@@ -27,7 +36,7 @@ const getSharedVisibilityObserver = () => {
     return sharedVisibilityObserver;
   }
 
-  visibilityResolvers = new Map();
+  visibilityResolvers = new WeakMap();
 
   sharedVisibilityObserver = new IntersectionObserver((entries) => {
     entries.forEach(({ isIntersecting, target }) => {
@@ -38,9 +47,8 @@ const getSharedVisibilityObserver = () => {
       const resolve = visibilityResolvers?.get(target);
 
       if (resolve) {
-        visibilityResolvers?.delete(target);
-        sharedVisibilityObserver?.unobserve(target);
         resolve();
+        removeVisibilityResolver(target);
       }
     });
   });
@@ -76,15 +84,11 @@ const scheduleVisibilityCheck = (callback) => {
 
 /**
  * Wait until the given element enters the viewport.
- * @param {HTMLElement | undefined} element Element to observe.
+ * @param {HTMLElement} element Element to observe.
  * @returns {void | Promise<void>} Promise to be resolved when the element becomes visible. If the
  * `element` is not available yet, `undefined` will be returned instead.
  */
 const waitForVisibility = (element) => {
-  if (!element) {
-    return undefined;
-  }
-
   const observer = getSharedVisibilityObserver();
 
   if (!observer) {
@@ -103,4 +107,4 @@ const waitForVisibility = (element) => {
   });
 };
 
-export { generateElementId, isVisible, waitForVisibility };
+export { generateElementId, isVisible, removeVisibilityResolver, waitForVisibility };
