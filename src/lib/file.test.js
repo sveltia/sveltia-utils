@@ -224,6 +224,24 @@ describe('Test getPathInfo()', () => {
 });
 
 describe('Test getDataURL()', () => {
+  test('string input', async () => {
+    expect(await getDataURL('Hello, World!')).toEqual(
+      'data:text/plain;base64,SGVsbG8sIFdvcmxkIQ==',
+    );
+  });
+
+  test('Blob input', async () => {
+    const blob = new Blob(['Hello, World!'], { type: 'text/plain' });
+
+    expect(await getDataURL(blob)).toEqual('data:text/plain;base64,SGVsbG8sIFdvcmxkIQ==');
+  });
+
+  test('File input retains the declared MIME type', async () => {
+    const file = new File(['<svg></svg>'], 'icon.svg', { type: 'image/svg+xml' });
+
+    expect(await getDataURL(file)).toEqual('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=');
+  });
+
   test('rejects when FileReader fires an error', async () => {
     const error = new DOMException('Read error', 'NotReadableError');
     const OriginalFileReader = globalThis.FileReader;

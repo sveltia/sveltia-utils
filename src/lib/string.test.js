@@ -64,6 +64,15 @@ describe('Test truncate()', () => {
     expect(truncate('こんにちは', 3)).toEqual('こんに…');
   });
 
+  test('multi-unit characters exactly filling max are not marked as truncated', () => {
+    // Each emoji is a surrogate pair, so the UTF-16 `length` (4) exceeds `max` even though the
+    // string is only 2 code points long. No ellipsis should be appended.
+    expect(truncate('🎉🎊', 2)).toEqual('🎉🎊');
+    expect(truncate('🎉', 1)).toEqual('🎉');
+    // One code point past `max` — the ellipsis comes back.
+    expect(truncate('🎉🎊', 1)).toEqual('🎉…');
+  });
+
   test('empty string', () => {
     expect(truncate('', 5)).toEqual('');
   });

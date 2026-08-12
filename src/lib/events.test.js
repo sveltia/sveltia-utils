@@ -382,3 +382,168 @@ describe('activateKeyShortcuts - Accel on macOS', () => {
     }
   });
 });
+
+describe('activateKeyShortcuts - shared listener', () => {
+  /** @type {HTMLButtonElement[]} */
+  let buttons = [];
+
+  /**
+   * Create a button attached to the document and track it for cleanup.
+   * @returns {HTMLButtonElement} The button.
+   */
+  const makeButton = () => {
+    const btn = /** @type {HTMLButtonElement} */ (document.createElement('button'));
+
+    document.body.appendChild(btn);
+    buttons.push(btn);
+
+    return btn;
+  };
+
+  /**
+   * Dispatch a `keydown` event on `globalThis`.
+   * @param {KeyboardEventInit} init Event options.
+   */
+  const press = (init) => {
+    globalThis.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }));
+  };
+
+  beforeEach(() => {
+    if (!document.elementsFromPoint) {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        writable: true,
+        value: () => /** @type {Element[]} */ ([]),
+      });
+    }
+  });
+
+  afterEach(() => {
+    buttons.forEach((btn) => btn.remove());
+    buttons = [];
+    vi.restoreAllMocks();
+  });
+
+  it('should dispatch to the correct element when several are registered', () => {
+    const save = makeButton();
+    const open = makeButton();
+
+    vi.spyOn(document, 'elementsFromPoint').mockImplementation(
+      () => /** @type {any} */ ([save, open]),
+    );
+
+    const saveSpy = vi.fn();
+    const openSpy = vi.fn();
+
+    save.addEventListener('click', saveSpy);
+    open.addEventListener('click', openSpy);
+
+    const cleanupSave = activateKeyShortcuts('Ctrl+S')(save);
+    const cleanupOpen = activateKeyShortcuts('Ctrl+O')(open);
+
+    press({ key: 's', ctrlKey: true });
+    expect(saveSpy).toHaveBeenCalledOnce();
+    expect(openSpy).not.toHaveBeenCalled();
+
+    press({ key: 'o', ctrlKey: true });
+    expect(saveSpy).toHaveBeenCalledOnce();
+    expect(openSpy).toHaveBeenCalledOnce();
+
+    cleanupSave?.();
+    cleanupOpen?.();
+  });
+
+  it('should keep remaining elements working after one is cleaned up', () => {
+    const first = makeButton();
+    const second = makeButton();
+
+    vi.spyOn(document, 'elementsFromPoint').mockImplementation(
+      () => /** @type {any} */ ([first, second]),
+    );
+
+    const firstSpy = vi.fn();
+    const secondSpy = vi.fn();
+
+    first.addEventListener('click', firstSpy);
+    second.addEventListener('click', secondSpy);
+
+    const cleanupFirst = activateKeyShortcuts('Ctrl+S')(first);
+    const cleanupSecond = activateKeyShortcuts('Ctrl+O')(second);
+
+    cleanupFirst?.();
+
+    press({ key: 's', ctrlKey: true });
+    expect(firstSpy).not.toHaveBeenCalled();
+
+    press({ key: 'o', ctrlKey: true });
+    expect(secondSpy).toHaveBeenCalledOnce();
+
+    cleanupSecond?.();
+  });
+
+  it('should stop responding once every element is cleaned up', () => {
+    const button = makeButton();
+
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue(/** @type {any} */ ([button]));
+
+    const clickSpy = vi.fn();
+
+    button.addEventListener('click', clickSpy);
+
+    const cleanup = activateKeyShortcuts('Ctrl+S')(button);
+
+    press({ key: 's', ctrlKey: true });
+    expect(clickSpy).toHaveBeenCalledOnce();
+
+    cleanup?.();
+    press({ key: 's', ctrlKey: true });
+    expect(clickSpy).toHaveBeenCalledOnce();
+  });
+
+  // Uses a fresh module so the shared registry starts empty: tests above intentionally leave some
+  // elements registered (they never run cleanup), which would otherwise keep the listener attached.
+  it('should register only one global keydown listener for many elements', async () => {
+    vi.resetModules();
+
+    const { activateKeyShortcuts: freshActivate } = await import('./events.js');
+    const addSpy = vi.spyOn(globalThis, 'addEventListener');
+    const removeSpy = vi.spyOn(globalThis, 'removeEventListener');
+    const attach = freshActivate('Ctrl+S');
+    const cleanups = [1, 2, 3, 4, 5].map(() => attach(makeButton()));
+
+    expect(addSpy.mock.calls.filter(([type]) => type === 'keydown')).toHaveLength(1);
+
+    cleanups.forEach((cleanup, index) => {
+      cleanup?.();
+
+      const keydownRemoves = removeSpy.mock.calls.filter(([type]) => type === 'keydown');
+
+      // The listener is only detached once the last element is unregistered.
+      expect(keydownRemoves).toHaveLength(index === cleanups.length - 1 ? 1 : 0);
+    });
+  });
+
+  it('should re-attach the listener after the registry empties and refills', async () => {
+    vi.resetModules();
+
+    const { activateKeyShortcuts: freshActivate } = await import('./events.js');
+    const first = makeButton();
+
+    vi.spyOn(document, 'elementsFromPoint').mockImplementation(() => /** @type {any} */ (buttons));
+
+    // Register then immediately unregister, emptying the registry and detaching the listener.
+    freshActivate('Ctrl+S')(first)?.();
+
+    const second = makeButton();
+    const secondSpy = vi.fn();
+
+    second.addEventListener('click', secondSpy);
+
+    const cleanup = freshActivate('Ctrl+S')(second);
+
+    press({ key: 's', ctrlKey: true });
+    expect(secondSpy).toHaveBeenCalledOnce();
+
+    cleanup?.();
+  });
+});

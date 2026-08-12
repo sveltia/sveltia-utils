@@ -139,8 +139,15 @@ export default class IndexedDB {
     if (!this.#database) {
       // Cache the in-flight promise so concurrent callers share a single DB open.
       this.#databasePromise ??= this.#getDatabase();
-      this.#database = await this.#databasePromise;
-      this.#databasePromise = undefined;
+
+      try {
+        this.#database = await this.#databasePromise;
+      } finally {
+        // Clear in `finally`, not after the `await`: if the open fails, the rejected promise must
+        // not stay cached, or every later query on this instance would replay the same failure with
+        // no way to recover.
+        this.#databasePromise = undefined;
+      }
     }
 
     const database = /** @type {IDBDatabase} */ (this.#database);

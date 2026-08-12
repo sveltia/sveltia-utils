@@ -78,6 +78,86 @@ const tokenMatchesEvent = (token, event) => {
 };
 
 /**
+ * A shortcut string parsed into the exact modifier state it requires plus its non-modifier tokens.
+ * @typedef {object} ParsedShortcut
+ * @property {boolean} ctrl Whether Ctrl must be held.
+ * @property {boolean} meta Whether Meta must be held.
+ * @property {boolean} alt Whether Alt must be held.
+ * @property {boolean} shift Whether Shift must be held.
+ * @property {string[]} tokens Non-modifier key tokens, e.g. `['S']`.
+ */
+
+/**
+ * Replace the `Accel` alias with the platform’s primary modifier.
+ * @param {string} shortcuts Keyboard shortcuts, possibly containing `Accel`.
+ * @returns {string} Resolved shortcuts.
+ */
+const resolveAccel = (shortcuts) => shortcuts.replace(/\bAccel\b/g, isMac() ? 'Meta' : 'Ctrl');
+/**
+ * Cache of parsed shortcut strings. Shortcut matching runs on every keystroke, so the string
+ * splitting and `Accel` substitution happen once per unique shortcut string rather than per event.
+ * Keyed by the raw (unresolved) string; {@link isMac} is stable for the lifetime of the module, so
+ * the resolved result is stable too.
+ * @type {Map<string, ParsedShortcut[]>}
+ */
+const parsedShortcutCache = new Map();
+
+/**
+ * Parse a shortcut string into a list of {@link ParsedShortcut} objects, one per space-separated
+ * alternative.
+ * @param {string} shortcuts Keyboard shortcuts like `A`, `Ctrl+S`, `Accel+Space`, `Shift+1`.
+ * @returns {ParsedShortcut[]} Parsed shortcuts.
+ */
+const parseShortcuts = (shortcuts) => {
+  let parsed = parsedShortcutCache.get(shortcuts);
+
+  if (!parsed) {
+    parsed = resolveAccel(shortcuts)
+      .split(/\s+/)
+      .map((shortcut) => {
+        const keys = shortcut.split('+');
+
+        return {
+          ctrl: keys.includes('Ctrl'),
+          meta: keys.includes('Meta'),
+          alt: keys.includes('Alt'),
+          shift: keys.includes('Shift'),
+          tokens: keys.filter((key) => !MODIFIER_KEYS.includes(key)),
+        };
+      });
+
+    parsedShortcutCache.set(shortcuts, parsed);
+  }
+
+  return parsed;
+};
+
+/**
+ * Whether the event matches any of the given pre-parsed shortcuts. The modifier state must match
+ * exactly: every modifier the shortcut requires has to be held, and no others.
+ * @param {KeyboardEvent} event `keydown` or `keypress` event.
+ * @param {ParsedShortcut[]} parsedShortcuts Pre-parsed shortcuts.
+ * @returns {boolean} Result.
+ */
+const matchesParsedShortcuts = (event, parsedShortcuts) => {
+  const { ctrlKey, metaKey, altKey, shiftKey, key, code } = event;
+
+  // Both `key` and `code` can be empty in edge cases (e.g. dead keys mid-composition).
+  if (!key && !code) {
+    return false;
+  }
+
+  return parsedShortcuts.some(
+    ({ ctrl, meta, alt, shift, tokens }) =>
+      ctrl === ctrlKey &&
+      meta === metaKey &&
+      alt === altKey &&
+      shift === shiftKey &&
+      tokens.every((token) => tokenMatchesEvent(token, event)),
+  );
+};
+
+/**
  * Whether the event matches the given keyboard shortcuts.
  *
  * Uses a hybrid of `KeyboardEvent.key` and `KeyboardEvent.code` so shortcuts work correctly on
@@ -91,42 +171,68 @@ const tokenMatchesEvent = (token, event) => {
  * @see https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_code_values
  * @see https://w3c.github.io/aria/#aria-keyshortcuts
  */
-const matchesShortcuts = (event, shortcuts) => {
-  const { ctrlKey, metaKey, altKey, shiftKey, key, code } = event;
+const matchesShortcuts = (event, shortcuts) =>
+  matchesParsedShortcuts(event, parseShortcuts(shortcuts));
 
-  // Both `key` and `code` can be empty in edge cases (e.g. dead keys mid-composition).
-  if (!key && !code) {
-    return false;
+/**
+ * Elements with active shortcuts, mapped to their pre-parsed shortcuts. A single shared `keydown`
+ * listener serves every registered element, instead of adding one global listener per element.
+ * @type {Map<HTMLInputElement | HTMLButtonElement, ParsedShortcut[]>}
+ */
+const shortcutTargets = new Map();
+
+/**
+ * Activate the element if the shortcut applies to it. Only called once the event is already known
+ * to match, since the geometry checks here force a synchronous layout.
+ * @param {HTMLInputElement | HTMLButtonElement} element Registered element.
+ * @param {KeyboardEvent} event `keydown` event.
+ */
+const activateElement = (element, event) => {
+  const { disabled } = element;
+
+  // `getClientRects()` is empty for `display: none` elements. Unlike `offsetParent`, it still
+  // returns rects for `position: fixed` elements.
+  if (!element.getClientRects().length) {
+    return;
   }
 
-  const resolvedShortcuts = shortcuts.replace(/\bAccel\b/g, isMac() ? 'Meta' : 'Ctrl');
+  const { top, left } = element.getBoundingClientRect();
 
-  return resolvedShortcuts.split(/\s+/).some((shortcut) => {
-    const keys = shortcut.split('+');
+  if (disabled) {
+    // Make sure `elementsFromPoint()` works as expected
+    element.style.setProperty('pointer-events', 'auto');
+  }
 
-    // Check if required modifier keys are pressed
-    if (
-      (keys.includes('Ctrl') && !ctrlKey) ||
-      (keys.includes('Meta') && !metaKey) ||
-      (keys.includes('Alt') && !altKey) ||
-      (keys.includes('Shift') && !shiftKey)
-    ) {
-      return false;
+  // Check if the element is clickable (not behind a modal dialog)
+  const isClickable = document.elementsFromPoint(left + 4, top + 4).includes(element);
+
+  if (disabled) {
+    element.style.removeProperty('pointer-events');
+  }
+
+  if (!isClickable) {
+    return;
+  }
+
+  event.preventDefault();
+
+  if (!disabled) {
+    element.focus();
+    element.click();
+  }
+};
+
+/**
+ * Shared `keydown` handler. The shortcut comparison runs first for every registered element because
+ * it is pure string/boolean work; the layout-forcing geometry checks in {@link activateElement} are
+ * reached only once a shortcut actually matches. This keeps ordinary typing free of reflows.
+ * @param {KeyboardEvent} event `keydown` event.
+ */
+const handleKeyDown = (event) => {
+  shortcutTargets.forEach((parsedShortcuts, element) => {
+    if (matchesParsedShortcuts(event, parsedShortcuts)) {
+      activateElement(element, event);
     }
-
-    // Check if unnecessary modifier keys are not pressed
-    if (
-      (!keys.includes('Ctrl') && ctrlKey) ||
-      (!keys.includes('Meta') && metaKey) ||
-      (!keys.includes('Alt') && altKey) ||
-      (!keys.includes('Shift') && shiftKey)
-    ) {
-      return false;
-    }
-
-    return keys
-      .filter((_key) => !MODIFIER_KEYS.includes(_key))
-      .every((_key) => tokenMatchesEvent(_key, event));
   });
 };
 
@@ -139,9 +245,7 @@ const matchesShortcuts = (event, shortcuts) => {
  * shortcuts.
  */
 const activateKeyShortcuts = (shortcuts = '') => {
-  const platformKeyShortcuts = shortcuts
-    ? shortcuts.replace(/\bAccel\b/g, isMac() ? 'Meta' : 'Ctrl')
-    : undefined;
+  const platformKeyShortcuts = shortcuts ? resolveAccel(shortcuts) : undefined;
 
   if (!platformKeyShortcuts) {
     // Return a no-op attachment so the return value always matches the `Attachment` shape (a
@@ -149,50 +253,23 @@ const activateKeyShortcuts = (shortcuts = '') => {
     return () => () => {};
   }
 
+  const parsedShortcuts = parseShortcuts(platformKeyShortcuts);
+
   return (element) => {
-    /**
-     * Handle the event.
-     * @param {KeyboardEvent} event `keydown` event.
-     */
-    const handler = (event) => {
-      const { disabled } = element;
+    if (!shortcutTargets.size) {
+      globalThis.addEventListener('keydown', handleKeyDown, { capture: true });
+    }
 
-      if (!element.getClientRects().length || !matchesShortcuts(event, platformKeyShortcuts)) {
-        return;
-      }
-
-      const { top, left } = element.getBoundingClientRect();
-
-      if (disabled) {
-        // Make sure `elementsFromPoint()` works as expected
-        element.style.setProperty('pointer-events', 'auto');
-      }
-
-      // Check if the element is clickable (not behind a modal dialog)
-      const isClickable = document.elementsFromPoint(left + 4, top + 4).includes(element);
-
-      if (disabled) {
-        element.style.removeProperty('pointer-events');
-      }
-
-      if (!isClickable) {
-        return;
-      }
-
-      event.preventDefault();
-
-      if (!disabled) {
-        element.focus();
-        element.click();
-      }
-    };
-
-    globalThis.addEventListener('keydown', handler, { capture: true });
+    shortcutTargets.set(element, parsedShortcuts);
     element.setAttribute('aria-keyshortcuts', platformKeyShortcuts);
 
     return () => {
-      globalThis.removeEventListener('keydown', handler, { capture: true });
+      shortcutTargets.delete(element);
       element.removeAttribute('aria-keyshortcuts');
+
+      if (!shortcutTargets.size) {
+        globalThis.removeEventListener('keydown', handleKeyDown, { capture: true });
+      }
     };
   };
 };

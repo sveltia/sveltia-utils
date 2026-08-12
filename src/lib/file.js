@@ -6,6 +6,9 @@ import { escapeRegExp } from './string.js';
  * @param {string} flags Flags for `RegExp`.
  * @returns {RegExp} Regular expression.
  */
+// NOTE: deliberately *not* cached. A `g`- or `y`-flagged `RegExp` carries a mutable `lastIndex`,
+// so handing the same instance to multiple callers would make `test()`/`exec()` results depend on
+// previous calls. Constructing a fresh pattern here is cheap next to that hazard.
 const getBlobRegex = (flags = '') =>
   new RegExp(
     `\\bblob:${escapeRegExp(globalThis.location.origin)}\\/${uuidPattern.source}\\b`,
@@ -78,11 +81,14 @@ const isValidFileType = (file, specifiers) => {
     return true;
   }
 
-  return specifiers.some((specifier) => {
-    specifier = specifier.toLowerCase();
+  // Lowercase the file name once rather than once per specifier.
+  const fileName = file.name.toLowerCase();
+
+  return specifiers.some((rawSpecifier) => {
+    const specifier = rawSpecifier.toLowerCase();
 
     if (specifier.startsWith('.')) {
-      return file.name.toLowerCase().endsWith(specifier);
+      return fileName.endsWith(specifier);
     }
 
     const [type, subtype] = specifier.split('/');
@@ -207,7 +213,15 @@ const getDataURL = async (input) => {
  * @param {File | Blob | string} input Input file or string.
  * @returns {Promise<string>} Base64.
  */
-const encodeBase64 = async (input) => (await getDataURL(input)).split(',')[1];
+const encodeBase64 = async (input) => {
+  const blob = typeof input === 'string' ? new Blob([input], { type: 'text/plain' }) : input;
+
+  // Encode the bytes directly rather than going through `getDataURL()`. The data URL route holds
+  // the whole Base64 payload as a string and then allocates a second full-size copy when splitting
+  // off the `data:...;base64,` prefix — roughly 2× the encoded size at peak, on top of a
+  // `FileReader` event-loop round trip.
+  return new Uint8Array(await blob.arrayBuffer()).toBase64();
+};
 
 /**
  * Decode a Base64-encoded string as a plaintext UTF-8 string. Uses `Promise` to be consistent with
