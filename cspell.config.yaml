@@ -19,6 +19,7 @@ ignorePaths:
   - src/**/*.test.js
 words:
   - AZERTY
+  - browserslist
   - Colemak
   - colour
   - colours
