@@ -56,22 +56,15 @@ const generateRandomId = () => {
  * @see https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
  */
 const getHash = async (input, { algorithm = 'SHA-1', format = 'hex' } = {}) => {
+  /** @type {BufferSource} */
   let data;
 
+  // `digest()` accepts any `BufferSource`, so views are passed as-is. Slicing `view.buffer` would
+  // copy the whole payload first, doubling peak memory for large inputs.
   if (typeof input === 'string') {
-    const uint8Array = new TextEncoder().encode(input);
-
-    data = uint8Array.buffer.slice(
-      uint8Array.byteOffset,
-      uint8Array.byteOffset + uint8Array.byteLength,
-    );
-  } else if (input instanceof ArrayBuffer) {
-    data = input;
-  } else if (ArrayBuffer.isView(input)) {
-    // TypedArray or DataView
-    const view = /** @type {ArrayBufferView} */ (input);
-
-    data = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+    data = new TextEncoder().encode(input);
+  } else if (input instanceof ArrayBuffer || ArrayBuffer.isView(input)) {
+    data = /** @type {BufferSource} */ (input);
   } else if (input && typeof (/** @type {any} */ (input).arrayBuffer) === 'function') {
     // Blob or File
     data = await /** @type {Blob} */ (input).arrayBuffer();
@@ -79,10 +72,7 @@ const getHash = async (input, { algorithm = 'SHA-1', format = 'hex' } = {}) => {
     throw new Error('Unsupported input type for getHash');
   }
 
-  const digest = await globalThis.crypto.subtle.digest(
-    algorithm,
-    /** @type {ArrayBuffer} */ (data),
-  );
+  const digest = await globalThis.crypto.subtle.digest(algorithm, data);
 
   if (format === 'binary') {
     return Array.from(new Uint8Array(digest), (b) => String.fromCharCode(b)).join('');

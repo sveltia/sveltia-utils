@@ -286,48 +286,43 @@ export default class IndexedDB {
    * @returns {Promise<[any, any][]>} Key/value pairs.
    */
   async entries() {
-    return new Promise((resolve, reject) => {
-      this.#query((store) => {
-        const request = store.openCursor();
-        /** @type {[any, any][]} */
-        const entries = [];
+    // Bulk-read keys and values rather than walking a cursor, which costs one event-loop round trip
+    // per record. Both requests run in the same transaction and return records in key order, so
+    // the two arrays line up.
+    /** @type {any[]} */
+    let keys = [];
 
-        request.onsuccess = () => {
-          const cursor = request.result;
+    const values = await this.#query((store) => {
+      const keysRequest = store.getAllKeys();
 
-          if (cursor) {
-            entries.push([cursor.key, cursor.value]);
-            cursor.continue();
-          } else {
-            resolve(entries);
-          }
-        };
-      }).catch(reject);
+      keysRequest.onsuccess = () => {
+        keys = keysRequest.result;
+      };
+
+      return store.getAll();
     });
+
+    return keys.map((key, index) => [key, values[index]]);
   }
 
   /**
-   * Find one or more records using a cursor.
+   * Find a record using a cursor, stopping at the first match.
    * @param {object} args Arguments.
    * @param {(record: any) => boolean} [args.callback] A function to execute for each record.
    * @param {string} [args.index] Index name.
    * @param {IDBValidKey | IDBKeyRange} [args.query] Query option for `openCursor()`.
    * @param {IDBCursorDirection} [args.direction] The direction option for `openCursor()`.
-   * @param {boolean} [args.multiple] Whether to return all matching records.
-   * @returns {Promise<any | any[]>} Found record(s).
+   * @returns {Promise<any>} Found record.
    */
   async #search({
     callback = undefined,
     index = undefined,
     query = undefined,
     direction = 'next',
-    multiple = false,
   }) {
     return new Promise((resolve, reject) => {
       this.#query((store) => {
         const request = (index ? store.index(index) : store).openCursor(query, direction);
-        /** @type {any[]} */
-        const records = [];
 
         request.onsuccess = () => {
           const cursor = request.result;
@@ -336,17 +331,12 @@ export default class IndexedDB {
             const { value } = cursor;
 
             if (typeof callback === 'function' ? callback(value) : true) {
-              if (multiple) {
-                records.push(value);
-                cursor.continue();
-              } else {
-                resolve(value);
-              }
+              resolve(value);
             } else {
               cursor.continue();
             }
           } else {
-            resolve(multiple ? records : undefined);
+            resolve(undefined);
           }
         };
       }).catch(reject);
@@ -386,7 +376,13 @@ export default class IndexedDB {
    * @returns {Promise<any[]>} Found records.
    */
   async filter(callback, { index, query } = {}) {
-    return this.#search({ callback, index, query, multiple: true });
+    // Every record has to be visited anyway, so a single bulk read beats a cursor that costs one
+    // event-loop round trip per record. The callback also runs after the transaction is released.
+    /** @type {any[]} */
+    const values = await this.#query((store) => (index ? store.index(index) : store).getAll(query));
+
+    // Wrap the callback so it only receives the record, not `Array#filter`’s index/array arguments
+    return typeof callback === 'function' ? values.filter((value) => callback(value)) : values;
   }
 
   /**

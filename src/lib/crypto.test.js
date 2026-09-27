@@ -114,6 +114,17 @@ describe('Test getHash()', () => {
     expect(await getHash(uint8Array)).toEqual(hash);
   });
 
+  test('views into a larger buffer only hash their own bytes', async () => {
+    const encoded = new TextEncoder().encode(string);
+    const padded = new Uint8Array(encoded.byteLength + 8);
+    const hash = '0a0a9f2a6772942557ab5355d76af442f8f65e01';
+
+    padded.set(encoded, 4);
+
+    expect(await getHash(padded.subarray(4, 4 + encoded.byteLength))).toEqual(hash);
+    expect(await getHash(new DataView(padded.buffer, 4, encoded.byteLength))).toEqual(hash);
+  });
+
   test('throws on unsupported input', async () => {
     await expect(getHash(/** @type {any} */ (42))).rejects.toThrow(
       'Unsupported input type for getHash',
