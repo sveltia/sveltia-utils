@@ -158,6 +158,12 @@ describe('Test IndexedDB', () => {
       },
     ]);
     expect(await db.filter(({ category }) => category === 'tablet')).toEqual([]);
+    // Without a callback, every record (optionally narrowed by the index query) is returned
+    expect(await db.filter()).toEqual(await db.values());
+    expect(await db.filter(undefined, { index: 'year', query: 2023 })).toEqual([
+      { id: 1, year: 2023, category: 'book' },
+      { id: 4, year: 2023, category: 'software' },
+    ]);
   });
 
   test('Upgrading existing store with a new index', async () => {
@@ -408,5 +414,113 @@ describe('Error paths', () => {
 
     expect(await db1.get('a')).toEqual(1);
     expect(await db2.get('b')).toEqual(2);
+  });
+
+  /**
+   * Make the next versioned `indexedDB.open()` call fail with the given error, passing every other
+   * call through to the real implementation.
+   * @param {DOMException} error Error to fail with.
+   * @returns {{ restore: () => void, calls: any[][] }} Restore function and recorded call args.
+   */
+  const failNextVersionedOpen = (error) => {
+    const originalOpen = globalThis.indexedDB.open.bind(globalThis.indexedDB);
+    /** @type {any[][]} */
+    const calls = [];
+    let failed = false;
+
+    /** @type {any} */ (globalThis.indexedDB).open = (/** @type {any[]} */ ...args) => {
+      calls.push(args);
+
+      if (args[1] !== undefined && !failed) {
+        failed = true;
+
+        const request = /** @type {any} */ ({ onupgradeneeded: null, onsuccess: null });
+
+        setTimeout(() => {
+          Object.defineProperty(request, 'error', { value: error });
+          request.onerror?.();
+        }, 0);
+
+        return request;
+      }
+
+      return /** @type {any} */ (originalOpen)(...args);
+    };
+
+    return {
+      calls,
+      restore: () => {
+        /** @type {any} */ (globalThis.indexedDB).open = originalOpen;
+      },
+    };
+  };
+
+  test('retries the upgrade when the database version moved on (VersionError)', async () => {
+    const dbName = 'version-error';
+
+    // Create the database without our store so an upgrade is needed
+    await new IndexedDB(dbName, 'other-store').keys();
+
+    const { calls, restore } = failNextVersionedOpen(
+      new DOMException('Requested version is less than the existing version', 'VersionError'),
+    );
+
+    try {
+      const db = new IndexedDB(dbName, 'my-store');
+
+      expect(await db.set('key', 'value')).toEqual('key');
+      expect(await db.get('key')).toEqual('value');
+      // Initial open, failed upgrade, reopen at the current version, successful upgrade
+      expect(calls.map(([, version]) => version)).toEqual([undefined, 2, undefined, 2]);
+    } finally {
+      restore();
+    }
+  });
+
+  test('rejects when the upgrade fails with an error other than VersionError', async () => {
+    const dbName = 'upgrade-error';
+    const error = new DOMException('Upgrade failed', 'UnknownError');
+
+    await new IndexedDB(dbName, 'other-store').keys();
+
+    const { restore } = failNextVersionedOpen(error);
+
+    try {
+      await expect(new IndexedDB(dbName, 'my-store').keys()).rejects.toBe(error);
+    } finally {
+      restore();
+    }
+  });
+
+  test('reopens the database after the browser closes the connection', async () => {
+    const originalOpen = globalThis.indexedDB.open.bind(globalThis.indexedDB);
+    /** @type {any[]} */
+    const requests = [];
+
+    /** @type {any} */ (globalThis.indexedDB).open = (/** @type {any[]} */ ...args) => {
+      const request = /** @type {any} */ (originalOpen)(...args);
+
+      requests.push(request);
+
+      return request;
+    };
+
+    try {
+      const db = new IndexedDB('closed-by-browser', 'store');
+
+      await db.set('key', 'value');
+      expect(requests).toHaveLength(1);
+
+      // Simulate an abnormal close, e.g. when site data is cleared
+      const database = requests[0].result;
+
+      database.close();
+      database.onclose();
+
+      expect(await db.get('key')).toEqual('value');
+      expect(requests).toHaveLength(2);
+    } finally {
+      /** @type {any} */ (globalThis.indexedDB).open = originalOpen;
+    }
   });
 });
