@@ -19,7 +19,7 @@ const getBlobRegex = (flags = '') =>
  * A regular expression to match a file path. Chained extensions of tarballs like `archive.tar.gz`
  * are treated as a special case.
  */
-const filePathRegEx = /(?:(.+?)\/)?(([^/]+?)(?:\.((?:tar\.)?[a-zA-Z0-9]+))?)$/;
+const filePathRegEx = /(?:(.+?)\/)?(([^/]+?)(?:\.((?:[Tt][Aa][Rr]\.)?[a-zA-Z0-9]+))?)$/;
 
 /**
  * List of MIME types that can be considered as plaintext.
@@ -63,8 +63,8 @@ const getPathInfo = (path) => {
  */
 const encodeFilePath = (path) => path.split('/').map(encodeURIComponent).join('/');
 /**
- * Encode the given (partial) file path or file name.
- * @param {string} path Original path.
+ * Decode the given (partial) file path or file name.
+ * @param {string} path Encoded path.
  * @returns {string} Decoded path.
  */
 const decodeFilePath = (path) => decodeURIComponent(path);
@@ -111,7 +111,12 @@ const isValidFileType = (file, specifiers) => {
  * @see https://developer.mozilla.org/en-US/docs/Web/API/DataTransferItem/webkitGetAsEntry
  */
 const scanFiles = async ({ items }, { accept } = {}) => {
-  const specifiers = accept ? accept.trim().split(/,\s*/) : [];
+  const specifiers = accept
+    ? accept
+        .split(',')
+        .map((specifier) => specifier.trim())
+        .filter(Boolean)
+    : [];
 
   /**
    * Read files recursively from the filesystem.
@@ -143,14 +148,26 @@ const scanFiles = async ({ items }, { accept } = {}) => {
          * Read all entries from the directory by repeatedly calling `readEntries` until empty.
          */
         const readAll = () => {
-          reader.readEntries((entries) => {
-            if (entries.length) {
-              allEntries.push(...entries);
-              readAll();
-            } else {
-              resolve(/** @type {Promise<File[]>} */ (Promise.all(allEntries.map(readEntry))));
-            }
-          });
+          /**
+           * Resolve with the files read from the entries collected so far.
+           */
+          const finish = () => {
+            resolve(/** @type {Promise<File[]>} */ (Promise.all(allEntries.map(readEntry))));
+          };
+
+          reader.readEntries(
+            (entries) => {
+              if (entries.length) {
+                allEntries.push(...entries);
+                readAll();
+              } else {
+                finish();
+              }
+            },
+            // Don’t leave the Promise pending forever if the directory becomes unreadable
+            /* v8 ignore next */
+            finish,
+          );
         };
 
         readAll();
@@ -245,9 +262,11 @@ const decodeBase64 = async (base64) => {
 const saveFile = (file, name) => {
   const link = document.createElement('a');
   const blobURL = URL.createObjectURL(file);
+  // A `Blob` may have an empty `type`, and a subtype may carry a suffix like `svg+xml`
+  const extension = file.type.split('/')[1]?.split(/[+;]/)[0];
 
   link.download =
-    name ?? /** @type {File} */ (file).name ?? `${Date.now()}.${file.type.split('/')[1]}`;
+    name || /** @type {File} */ (file).name || [Date.now(), extension].filter(Boolean).join('.');
   link.href = blobURL;
   link.click();
 

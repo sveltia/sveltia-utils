@@ -393,4 +393,20 @@ describe('Error paths', () => {
       /** @type {any} */ (globalThis.indexedDB).open = originalOpen;
     }
   });
+
+  test('Concurrent upgrades from instances using different stores in the same database', async () => {
+    const dbName = 'concurrent-upgrade';
+
+    // Create the database with an unrelated store first so both instances below need an upgrade
+    // from the same starting version.
+    await new IndexedDB(dbName, 'store-0').keys();
+
+    const db1 = new IndexedDB(dbName, 'store-1');
+    const db2 = new IndexedDB(dbName, 'store-2');
+
+    await Promise.all([db1.set('a', 1), db2.set('b', 2)]);
+
+    expect(await db1.get('a')).toEqual(1);
+    expect(await db2.get('b')).toEqual(2);
+  });
 });

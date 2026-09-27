@@ -136,6 +136,12 @@ describe('Test getPathInfo()', () => {
       filename: 'archive',
       extension: 'tar.gz',
     });
+    expect(getPathInfo('ARCHIVE.TAR.GZ')).toEqual({
+      dirname: undefined,
+      basename: 'ARCHIVE.TAR.GZ',
+      filename: 'ARCHIVE',
+      extension: 'TAR.GZ',
+    });
   });
 
   test('dot in basename', () => {
@@ -511,6 +517,20 @@ describe('Test saveFile()', () => {
     expect(link.download).toMatch(/^\d+\.png$/);
     expect(link.click).toHaveBeenCalledOnce();
   });
+
+  test('saves a Blob without a type or name without an `undefined` extension', () => {
+    const link = { click: vi.fn(), href: '', download: '' };
+
+    vi.spyOn(document, 'createElement').mockReturnValue(/** @type {any} */ (link));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock4');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    saveFile(new Blob(['data']));
+    expect(link.download).toMatch(/^\d+$/);
+
+    saveFile(new Blob(['<svg/>'], { type: 'image/svg+xml' }));
+    expect(link.download).toMatch(/^\d+\.svg$/);
+  });
 });
 
 describe('Test scanFiles()', () => {
@@ -588,6 +608,19 @@ describe('Test scanFiles()', () => {
     const result = await scanFiles(/** @type {any} */ ({ items }), { accept: 'image/*' });
 
     expect(result.map((f) => f.name)).toEqual(['photo.png']);
+  });
+
+  test('tolerates whitespace around accept specifiers', async () => {
+    const img = new File(['i'], 'photo.png', { type: 'image/png' });
+    const txt = new File(['t'], 'readme.txt', { type: 'text/plain' });
+    const pdf = new File(['p'], 'doc.pdf', { type: 'application/pdf' });
+    const items = [img, txt, pdf].map((file) => ({ webkitGetAsEntry: () => makeFileEntry(file) }));
+
+    const result = await scanFiles(/** @type {any} */ ({ items }), {
+      accept: ' image/png , .txt ,',
+    });
+
+    expect(result.map((f) => f.name)).toEqual(['photo.png', 'readme.txt']);
   });
 
   test('recurses into directories', async () => {

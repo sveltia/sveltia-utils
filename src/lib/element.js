@@ -100,9 +100,26 @@ const waitForVisibility = (element) => {
   }
 
   return new Promise((resolve) => {
-    visibilityResolvers?.set(element, resolve);
+    const previousResolve = visibilityResolvers?.get(element);
+
+    // Keep any pending resolver for the same element so that earlier callers are resolved too,
+    // instead of being overwritten and left pending forever.
+    visibilityResolvers?.set(
+      element,
+      previousResolve
+        ? () => {
+            previousResolve();
+            resolve();
+          }
+        : resolve,
+    );
+
     scheduleVisibilityCheck(() => {
-      observer.observe(element);
+      // Don’t start observing if the resolver was removed in the meantime; nothing would ever
+      // unobserve the element after that.
+      if (visibilityResolvers?.has(element)) {
+        observer.observe(element);
+      }
     });
   });
 };

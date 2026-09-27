@@ -76,6 +76,12 @@ describe('Test truncate()', () => {
   test('empty string', () => {
     expect(truncate('', 5)).toEqual('');
   });
+
+  test('surrounding whitespace does not trigger the ellipsis', () => {
+    expect(truncate('abc   ', 4)).toEqual('abc');
+    expect(truncate('   abc', 4)).toEqual('abc');
+    expect(truncate('  Hello, World!  ', 5)).toEqual('Hello…');
+  });
 });
 
 describe('Test stripSlashes()', () => {

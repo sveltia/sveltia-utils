@@ -97,31 +97,60 @@ export default class IndexedDB {
   }
 
   /**
+   * Check whether the database lacks the store or any of the indexes, requiring an upgrade.
+   * @param {IDBDatabase} database Database.
+   * @returns {boolean} Result.
+   */
+  #isUpgradeNeeded(database) {
+    const storeName = this.#storeName;
+
+    if (!database.objectStoreNames.contains(storeName)) {
+      return true;
+    }
+
+    const store = database.transaction(storeName).objectStore(storeName);
+
+    return this.#indexes.some(({ name }) => !store.indexNames.contains(name));
+  }
+
+  /**
    * Get the database and automatically upgrade it if a new store is not created yet.
    * @returns {Promise<IDBDatabase>} Database.
    */
   async #getDatabase() {
-    let upgradeNeeded = false;
     let database = await this.#openDatabase();
-    const { version, objectStoreNames } = database;
-    const storeName = this.#storeName;
 
-    if (objectStoreNames.contains(storeName)) {
-      const store = database.transaction(storeName).objectStore(storeName);
+    // Loop because another connection (e.g. another instance using a different store in the same
+    // database) may upgrade the database concurrently. In that case our `version + 1` open either
+    // succeeds without running `onupgradeneeded`, leaving our store missing, or fails with a
+    // `VersionError` because the database is already at a higher version.
+    while (this.#isUpgradeNeeded(database)) {
+      const { version } = database;
 
-      upgradeNeeded = this.#indexes.some(({ name }) => !store.indexNames.contains(name));
-    } else {
-      upgradeNeeded = true;
-    }
-
-    if (upgradeNeeded) {
       database.close();
-      database = await this.#openDatabase(version + 1);
+
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        database = await this.#openDatabase(version + 1);
+      } catch (error) {
+        if (/** @type {DOMException} */ (error)?.name !== 'VersionError') {
+          throw error;
+        }
+
+        // eslint-disable-next-line no-await-in-loop
+        database = await this.#openDatabase();
+      }
     }
 
     // Avoid upgrade conflict
     database.onversionchange = () => {
       database.close();
+      this.#database = undefined;
+    };
+
+    // The connection can also be closed by the browser, e.g. when site data is cleared. Drop the
+    // cached reference so the next query reopens the database instead of failing forever.
+    database.onclose = () => {
       this.#database = undefined;
     };
 

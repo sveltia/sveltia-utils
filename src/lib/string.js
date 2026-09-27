@@ -8,18 +8,22 @@ const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Truncate the given string.
- * @param {string} string Original string.
+ * @param {string} input Original string.
  * @param {number} max Maximum number of characters.
  * @param {object} [options] Options.
  * @param {string} [options.ellipsis] Character(s) to be appended if the the truncated string is
  * longer than `max`.
  * @returns {string} Truncated string.
  */
-const truncate = (string, max, { ellipsis = '…' } = {}) => {
+const truncate = (input, max, { ellipsis = '…' } = {}) => {
+  // Trim up front so that surrounding whitespace neither counts toward `max` nor triggers the
+  // ellipsis when nothing but whitespace would be cut off.
+  const string = input.trim();
+
   // A string’s UTF-16 `length` is always >= its code point count, so this is a safe fast path that
   // avoids walking the string at all when it cannot possibly need truncating.
   if (string.length <= max) {
-    return string.trim();
+    return string;
   }
 
   // Don’t use `split()` because it breaks Unicode characters like emoji. Every code point occupies

@@ -163,6 +163,21 @@ describe('matchesShortcuts', () => {
   });
 });
 
+describe('matchesShortcuts - edge cases', () => {
+  it('should not match every key held with a modifier-only shortcut', () => {
+    expect(matchesShortcuts(makeEvent({ key: 's', code: 'KeyS', shiftKey: true }), 'Shift')).toBe(
+      false,
+    );
+    expect(
+      matchesShortcuts(makeEvent({ key: 'Shift', code: 'ShiftLeft', shiftKey: true }), 'Shift'),
+    ).toBe(true);
+  });
+
+  it('should ignore surrounding whitespace', () => {
+    expect(matchesShortcuts(makeEvent({ key: 's', code: 'KeyS' }), '  S  ')).toBe(true);
+  });
+});
+
 describe('matchesShortcuts - Accel on macOS', () => {
   it('should resolve Accel to Meta when on macOS', async () => {
     vi.resetModules();

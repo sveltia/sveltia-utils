@@ -18,6 +18,10 @@ const isMac = () => {
 };
 
 const MODIFIER_KEYS = ['Ctrl', 'Meta', 'Alt', 'Shift'];
+/**
+ * `KeyboardEvent.key` values produced by the modifier keys themselves.
+ */
+const MODIFIER_EVENT_KEYS = ['Control', 'Meta', 'Alt', 'Shift'];
 
 /**
  * Shortcut tokens that correspond to a physical, layout- and modifier-stable `KeyboardEvent.code`
@@ -113,7 +117,9 @@ const parseShortcuts = (shortcuts) => {
 
   if (!parsed) {
     parsed = resolveAccel(shortcuts)
+      .trim()
       .split(/\s+/)
+      .filter(Boolean)
       .map((shortcut) => {
         const keys = shortcut.split('+');
 
@@ -153,7 +159,10 @@ const matchesParsedShortcuts = (event, parsedShortcuts) => {
       meta === metaKey &&
       alt === altKey &&
       shift === shiftKey &&
-      tokens.every((token) => tokenMatchesEvent(token, event)),
+      // A modifier-only shortcut like `Shift` must not match every key pressed with that modifier
+      (tokens.length
+        ? tokens.every((token) => tokenMatchesEvent(token, event))
+        : MODIFIER_EVENT_KEYS.includes(key)),
   );
 };
 
@@ -245,7 +254,9 @@ const handleKeyDown = (event) => {
  * shortcuts.
  */
 const activateKeyShortcuts = (shortcuts = '') => {
-  const platformKeyShortcuts = shortcuts ? resolveAccel(shortcuts) : undefined;
+  const platformKeyShortcuts = shortcuts
+    ? resolveAccel(shortcuts).trim().replace(/\s+/g, ' ')
+    : undefined;
 
   if (!platformKeyShortcuts) {
     // Return a no-op attachment so the return value always matches the `Attachment` shape (a

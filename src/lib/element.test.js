@@ -196,6 +196,58 @@ describe('Test waitForVisibility()', () => {
     await expect(promise).resolves.toBeUndefined();
   });
 
+  test('resolves every pending call for the same element', async () => {
+    vi.resetModules();
+
+    /** @type {any} */
+    let intersectionCallback = undefined;
+
+    vi.stubGlobal(
+      'IntersectionObserver',
+      createIntersectionObserverMock({
+        onConstructor: (/** @type {IntersectionObserverCallback} */ cb) => {
+          intersectionCallback = cb;
+        },
+        onObserve: () => {},
+        onUnobserve: () => {},
+      }),
+    );
+    vi.stubGlobal('requestAnimationFrame', (/** @type {FrameRequestCallback} */ cb) => cb(0));
+
+    const { waitForVisibility } = await loadModule();
+    const element = document.createElement('div');
+    const first = waitForVisibility(element);
+    const second = waitForVisibility(element);
+
+    intersectionCallback([{ isIntersecting: true, target: element }]);
+    await expect(Promise.all([first, second])).resolves.toEqual([undefined, undefined]);
+  });
+
+  test('does not observe an element whose resolver was removed before the check', async () => {
+    vi.resetModules();
+
+    const observe = vi.fn();
+    /** @type {FrameRequestCallback | undefined} */
+    let frameCallback = undefined;
+
+    vi.stubGlobal(
+      'IntersectionObserver',
+      createIntersectionObserverMock({ onObserve: observe, onUnobserve: () => {} }),
+    );
+    vi.stubGlobal('requestAnimationFrame', (/** @type {FrameRequestCallback} */ cb) => {
+      frameCallback = cb;
+    });
+
+    const { removeVisibilityResolver, waitForVisibility } = await loadModule();
+    const element = document.createElement('div');
+
+    waitForVisibility(element);
+    removeVisibilityResolver(element);
+    /** @type {any} */ (frameCallback)(0);
+
+    expect(observe).not.toHaveBeenCalled();
+  });
+
   afterEach(() => {
     vi.resetModules();
     vi.unstubAllGlobals();
