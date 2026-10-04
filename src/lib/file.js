@@ -119,74 +119,80 @@ const scanFiles = async ({ items }, { accept } = {}) => {
     : [];
 
   /**
-   * Read files recursively from the filesystem.
-   * @param {FileSystemEntry} entry Either a file or directory entry.
-   * @returns {Promise<File | File[] | null>} File.
+   * Read a file entry, resolving with `null` if the file is inaccessible.
+   * @param {FileSystemFileEntry} entry File entry.
+   * @returns {Promise<File | null>} File.
    */
-  const readEntry = (entry) =>
+  const getFile = (entry) =>
     new Promise((resolve) => {
-      // Skip hidden files
-      if (entry.name.startsWith('.')) {
-        resolve(null);
-      } else if (entry.isFile) {
-        /** @type {FileSystemFileEntry} */ (entry).file(
-          (file) => {
-            resolve(isValidFileType(file, specifiers) ? file : null);
-          },
-          // Skip inaccessible files
-          /* v8 ignore next */
-          () => {
-            resolve(null);
-          },
-        );
-      } else {
-        const reader = /** @type {FileSystemDirectoryEntry} */ (entry).createReader();
-        /** @type {FileSystemEntry[]} */
-        const allEntries = [];
-
-        /**
-         * Read all entries from the directory by repeatedly calling `readEntries` until empty.
-         */
-        const readAll = () => {
-          /**
-           * Resolve with the files read from the entries collected so far.
-           */
-          const finish = () => {
-            resolve(/** @type {Promise<File[]>} */ (Promise.all(allEntries.map(readEntry))));
-          };
-
-          reader.readEntries(
-            (entries) => {
-              if (entries.length) {
-                allEntries.push(...entries);
-                readAll();
-              } else {
-                finish();
-              }
-            },
-            // Don’t leave the Promise pending forever if the directory becomes unreadable
-            /* v8 ignore next */
-            finish,
-          );
-        };
-
-        readAll();
-      }
+      entry.file(
+        resolve,
+        // Skip inaccessible files
+        /* v8 ignore next */
+        () => resolve(null),
+      );
     });
 
-  return /** @type {File[]} */ (
-    (
-      await Promise.all(
-        [...items].map((item) => {
-          const entry = item.webkitGetAsEntry();
+  /**
+   * Read one batch of entries from a directory, resolving with an empty array if the directory is
+   * unreadable so the caller doesn’t wait forever.
+   * @param {FileSystemDirectoryReader} reader Directory reader.
+   * @returns {Promise<FileSystemEntry[]>} Entries; empty when the directory is exhausted.
+   */
+  const readEntries = (reader) =>
+    new Promise((resolve) => {
+      reader.readEntries(
+        resolve,
+        /* v8 ignore next */
+        () => resolve([]),
+      );
+    });
 
-          return entry ? readEntry(entry) : null;
-        }),
-      )
-    )
-      .flat(Infinity)
-      .filter(Boolean)
-  ).sort((a, b) => a.name.localeCompare(b.name));
+  /**
+   * Read files recursively from the filesystem.
+   * @param {FileSystemEntry} entry Either a file or directory entry.
+   * @returns {Promise<File[]>} Files.
+   */
+  const readEntry = async (entry) => {
+    // Skip hidden files
+    if (entry.name.startsWith('.')) {
+      return [];
+    }
+
+    if (entry.isFile) {
+      const file = await getFile(/** @type {FileSystemFileEntry} */ (entry));
+
+      return file && isValidFileType(file, specifiers) ? [file] : [];
+    }
+
+    const reader = /** @type {FileSystemDirectoryEntry} */ (entry).createReader();
+    /** @type {FileSystemEntry[]} */
+    const entries = [];
+
+    // `readEntries()` returns entries in batches, so call it until it returns an empty batch
+    for (;;) {
+      // eslint-disable-next-line no-await-in-loop
+      const batch = await readEntries(reader);
+
+      if (!batch.length) {
+        break;
+      }
+
+      entries.push(...batch);
+    }
+
+    return (await Promise.all(entries.map(readEntry))).flat();
+  };
+
+  // Get all the entries synchronously; `DataTransfer` items are cleared once the event handler
+  // returns
+  const entries = [...items]
+    .map((item) => item.webkitGetAsEntry())
+    .filter((entry) => entry !== null);
+
+  const files = (await Promise.all(entries.map(readEntry))).flat();
+
+  return files.sort((a, b) => a.name.localeCompare(b.name));
 };
 
 /**
