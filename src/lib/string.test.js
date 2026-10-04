@@ -162,18 +162,6 @@ describe('Test isURL()', () => {
     expect(isURL('https://example.com\t')).toBe(false);
     expect(isURL('\nhttps://example.com')).toBe(false);
   });
-
-  test('fallback without URL.canParse', () => {
-    const original = URL.canParse;
-
-    // @ts-ignore
-    URL.canParse = undefined;
-    expect(isURL('https://example.com')).toBe(true);
-    expect(isURL('not a url')).toBe(false);
-    expect(isURL('example.com')).toBe(false);
-    expect(isURL('https://example.com ')).toBe(false);
-    URL.canParse = original;
-  });
 });
 
 describe('Test compare()', () => {

@@ -77,19 +77,7 @@ const isURL = (string) => {
     return false;
   }
 
-  // @ts-ignore
-  if (typeof URL.canParse === 'function') {
-    // @ts-ignore
-    return URL.canParse(string);
-  }
-
-  try {
-    // eslint-disable-next-line no-new
-    new URL(string);
-    return true;
-  } catch {
-    return false;
-  }
+  return URL.canParse(string);
 };
 
 /**
