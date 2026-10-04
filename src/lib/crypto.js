@@ -56,6 +56,8 @@ const encodeBase32 = (bytes) => {
     }
   });
 
+  // Always true for 16-byte UUID input, which leaves 3 bits over
+  /* v8 ignore else */
   if (bits > 0) {
     output += base32Alphabet[(buffer << (5 - bits)) & 31];
   }

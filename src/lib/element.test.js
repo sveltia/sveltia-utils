@@ -3,10 +3,55 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 const loadModule = () => import('./element.js');
 
 describe('Test removeVisibilityResolver()', () => {
-  test('is exported', async () => {
-    const module = await loadModule();
+  test('does not throw before the shared observer is created', async () => {
+    vi.resetModules();
 
-    expect(module.removeVisibilityResolver).toBeDefined();
+    const { removeVisibilityResolver } = await loadModule();
+
+    expect(() => removeVisibilityResolver(document.createElement('div'))).not.toThrow();
+  });
+});
+
+/**
+ * Build a `DOMRect`-like object for `getBoundingClientRect` mocks.
+ * @param {{ top: number, left: number, bottom: number, right: number }} rect Edges.
+ * @returns {DOMRect} Rect.
+ */
+const createRect = ({ top, left, bottom, right }) =>
+  /** @type {DOMRect} */ ({
+    top,
+    left,
+    bottom,
+    right,
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+    toJSON: () => ({}),
+  });
+
+describe('Test isVisible()', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test.each([
+    ['inside the viewport', { top: 10, left: 10, bottom: 20, right: 20 }, true],
+    ['partially above the viewport', { top: -10, left: 0, bottom: 5, right: 10 }, true],
+    ['entirely above the viewport', { top: -20, left: 0, bottom: 0, right: 10 }, false],
+    ['entirely left of the viewport', { top: 0, left: -20, bottom: 10, right: 0 }, false],
+    ['below the viewport', { top: 100, left: 0, bottom: 120, right: 10 }, false],
+    ['right of the viewport', { top: 0, left: 100, bottom: 10, right: 120 }, false],
+  ])('element %s', async (_label, rect, expected) => {
+    vi.stubGlobal('innerHeight', 100);
+    vi.stubGlobal('innerWidth', 100);
+
+    const { isVisible } = await loadModule();
+    const element = document.createElement('div');
+
+    vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(createRect(rect));
+
+    expect(isVisible(element)).toBe(expected);
   });
 });
 
@@ -246,6 +291,63 @@ describe('Test waitForVisibility()', () => {
     /** @type {any} */ (frameCallback)(0);
 
     expect(observe).not.toHaveBeenCalled();
+  });
+
+  test('removeVisibilityResolver() stops observing and leaves the Promise pending', async () => {
+    vi.resetModules();
+
+    /** @type {any} */
+    let intersectionCallback = undefined;
+    const unobserve = vi.fn();
+
+    vi.stubGlobal(
+      'IntersectionObserver',
+      createIntersectionObserverMock({
+        onConstructor: (/** @type {IntersectionObserverCallback} */ cb) => {
+          intersectionCallback = cb;
+        },
+        onUnobserve: unobserve,
+      }),
+    );
+    vi.stubGlobal('requestAnimationFrame', (/** @type {FrameRequestCallback} */ cb) => cb(0));
+
+    const { removeVisibilityResolver, waitForVisibility } = await loadModule();
+    const element = document.createElement('div');
+    const onResolve = vi.fn();
+
+    /** @type {Promise<void>} */ (waitForVisibility(element)).then(onResolve);
+    removeVisibilityResolver(element);
+    expect(unobserve).toHaveBeenCalledWith(element);
+
+    // A late intersection entry for the removed element is ignored
+    intersectionCallback([{ isIntersecting: true, target: element }]);
+    await Promise.resolve();
+    expect(onResolve).not.toHaveBeenCalled();
+  });
+
+  test('ignores intersecting entries whose target is not an HTMLElement', async () => {
+    vi.resetModules();
+
+    /** @type {any} */
+    let intersectionCallback = undefined;
+
+    vi.stubGlobal(
+      'IntersectionObserver',
+      createIntersectionObserverMock({
+        onConstructor: (/** @type {IntersectionObserverCallback} */ cb) => {
+          intersectionCallback = cb;
+        },
+      }),
+    );
+    vi.stubGlobal('requestAnimationFrame', (/** @type {FrameRequestCallback} */ cb) => cb(0));
+
+    const { waitForVisibility } = await loadModule();
+    const element = document.createElement('div');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+
+    waitForVisibility(element);
+
+    expect(() => intersectionCallback([{ isIntersecting: true, target: svg }])).not.toThrow();
   });
 
   afterEach(() => {
