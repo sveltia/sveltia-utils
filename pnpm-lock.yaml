@@ -11,10 +11,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      base32-encode:
-        specifier: ^2.0.0
-        version: 2.0.0
     devDependencies:
       '@sveltejs/adapter-auto':
         specifier: ^7.0.1
@@ -1197,10 +1193,6 @@ packages:
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
-
-  base32-encode@2.0.0:
-    resolution: {integrity: sha512-mlmkfc2WqdDtMl/id4qm3A7RjW6jxcbAoMjdRmsPiwQP0ufD4oXItYMnPgVHe80lnAIy+1xwzhHE1s4FoIceSw==}
-    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   baseline-browser-mapping@2.11.26:
     resolution: {integrity: sha512-GLQdD3y6UF8iVuMJl5fHgE4jdn/ua7n+toKfLgNlg3BqQtOZjpy68T8Tup8/wGWZCDlm7KMg7tPb4MPn7oN0TQ==}
@@ -2958,10 +2950,6 @@ packages:
     resolution: {integrity: sha512-yau8yJdTt989Mm0Bd/236QnzEiPf2xLLTqUZRUJOo/3CB078LSwzei343DgtJVmfJKJE3TMINY1u42SQsP6mXw==}
     engines: {node: '>=14.0.0'}
 
-  to-data-view@2.0.0:
-    resolution: {integrity: sha512-RGEM5KqlPHr+WVTPmGNAXNeFEmsBnlkxXaIfEpUYV0AST2Z5W1EGq9L/MENFrMMmL2WQr1wjkmZy/M92eKhjYA==}
-    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
-
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
@@ -4266,10 +4254,6 @@ snapshots:
   balanced-match@1.0.2: {}
 
   balanced-match@4.0.4: {}
-
-  base32-encode@2.0.0:
-    dependencies:
-      to-data-view: 2.0.0
 
   baseline-browser-mapping@2.11.26: {}
 
@@ -6264,8 +6248,6 @@ snapshots:
       picomatch: 4.0.7
 
   tinyrainbow@3.1.1: {}
-
-  to-data-view@2.0.0: {}
 
   to-regex-range@5.0.1:
     dependencies:

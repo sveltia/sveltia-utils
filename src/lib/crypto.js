@@ -1,5 +1,3 @@
-import base32Encode from 'base32-encode';
-
 /**
  * Regular expression that matches a UUID.
  */
@@ -33,18 +31,44 @@ const generateUUID = (length) => {
 };
 
 /**
+ * RFC 4648 Base32 alphabet, lowercased.
+ */
+const base32Alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+
+/* eslint-disable no-bitwise */
+/**
+ * Encode the given bytes as a lowercase RFC 4648 Base32 string without padding.
+ * @param {Uint8Array} bytes Bytes to encode.
+ * @returns {string} Encoded string.
+ */
+const encodeBase32 = (bytes) => {
+  let output = '';
+  let buffer = 0;
+  let bits = 0;
+
+  bytes.forEach((byte) => {
+    buffer = (buffer << 8) | byte;
+    bits += 8;
+
+    while (bits >= 5) {
+      bits -= 5;
+      output += base32Alphabet[(buffer >>> bits) & 31];
+    }
+  });
+
+  if (bits > 0) {
+    output += base32Alphabet[(buffer << (5 - bits)) & 31];
+  }
+
+  return output;
+};
+/* eslint-enable no-bitwise */
+
+/**
  * Generate a random ID.
  * @returns {string} Generated 26-character string.
  */
-const generateRandomId = () => {
-  const hex = generateUUID().replaceAll('-', '');
-
-  const { buffer } = new Uint8Array(
-    /** @type {RegExpMatchArray} */ (hex.match(/../g)).map((h) => parseInt(h, 16)),
-  );
-
-  return base32Encode(buffer, 'RFC4648', { padding: false }).toLowerCase();
-};
+const generateRandomId = () => encodeBase32(Uint8Array.fromHex(generateUUID().replaceAll('-', '')));
 
 /**
  * Get the SHA hash of the given file or text.
@@ -78,7 +102,7 @@ const getHash = async (input, { algorithm = 'SHA-1', format = 'hex' } = {}) => {
     return Array.from(new Uint8Array(digest), (b) => String.fromCharCode(b)).join('');
   }
 
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  return new Uint8Array(digest).toHex();
 };
 
 export { generateRandomId, generateUUID, getHash, uuidPattern };

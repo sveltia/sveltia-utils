@@ -44,6 +44,21 @@ describe('Test generateRandomId()', () => {
     expect(id).toHaveLength(26);
     expect(id).toMatch(/^[a-z2-7]{26}$/);
   });
+
+  test('encodes the UUID bytes as RFC 4648 Base32', () => {
+    expect(generateRandomId()).toBe('sze3ymcgdbboxckoyzcb46aq2y');
+  });
+
+  test('encodes edge-case bytes', () => {
+    vi.mocked(globalThis.crypto.randomUUID).mockReturnValueOnce(
+      'ffffffff-ffff-ffff-ffff-ffffffffffff',
+    );
+    expect(generateRandomId()).toBe('77777777777777777777777774');
+    vi.mocked(globalThis.crypto.randomUUID).mockReturnValueOnce(
+      '00000000-0000-0000-0000-000000000000',
+    );
+    expect(generateRandomId()).toBe('aaaaaaaaaaaaaaaaaaaaaaaaaa');
+  });
 });
 
 describe('Test getHash()', () => {

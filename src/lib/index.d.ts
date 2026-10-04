@@ -10,6 +10,12 @@ interface Uint8ArrayConstructor {
    * @returns A new Uint8Array containing the decoded bytes.
    */
   fromBase64(base64: string, options?: { alphabet?: 'base64' | 'base64url' }): Uint8Array;
+  /**
+   * Creates a new Uint8Array from a hex-encoded string.
+   * @param hex - A hex-encoded string.
+   * @returns A new Uint8Array containing the decoded bytes.
+   */
+  fromHex(hex: string): Uint8Array;
 }
 
 interface Uint8Array {
@@ -19,4 +25,9 @@ interface Uint8Array {
    * @returns A base64-encoded string.
    */
   toBase64(options?: { alphabet?: 'base64' | 'base64url' }): string;
+  /**
+   * Converts the Uint8Array to a hex-encoded string.
+   * @returns A hex-encoded string.
+   */
+  toHex(): string;
 }
