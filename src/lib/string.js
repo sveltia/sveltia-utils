@@ -43,7 +43,7 @@ const truncate = (input, max, { ellipsis = '…' } = {}) => {
  * @param {string} string Original string, e.g. `/foo/bar/`.
  * @returns {string} Trimmed string, e.g. `foo/bar`.
  */
-const stripSlashes = (string) => string.replace(/^\/+/, '').replace(/\/+$/, '');
+const stripSlashes = (string) => string.replace(/^\/+|\/+$/g, '');
 /**
  * Lazily-created shared parser. `DOMParser` is stateless across `parseFromString()` calls, so one
  * instance can be reused instead of constructing a new one on every call.
