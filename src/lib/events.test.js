@@ -127,6 +127,48 @@ describe('matchesShortcuts', () => {
     );
   });
 
+  it('should fall back to the physical key for letters on non-Latin layouts', () => {
+    // On a Russian layout, the physical "S" key produces 'ы'
+    expect(matchesShortcuts(makeEvent({ key: 'ы', code: 'KeyS', ctrlKey: true }), 'Ctrl+S')).toBe(
+      true,
+    );
+    expect(matchesShortcuts(makeEvent({ key: 'ы', code: 'KeyS', ctrlKey: true }), 'Ctrl+O')).toBe(
+      false,
+    );
+  });
+
+  it('should fall back to the physical key when Alt changes the letter on macOS', () => {
+    expect(matchesShortcuts(makeEvent({ key: '´', code: 'KeyE', altKey: true }), 'Alt+E')).toBe(
+      true,
+    );
+    expect(matchesShortcuts(makeEvent({ key: 'Dead', code: 'KeyE', altKey: true }), 'Alt+E')).toBe(
+      true,
+    );
+    expect(matchesShortcuts(makeEvent({ key: 'ß', code: 'KeyS', altKey: true }), 'Alt+S')).toBe(
+      true,
+    );
+  });
+
+  it('should not fall back to the physical key for ASCII punctuation or IME input', () => {
+    // Dvorak: physical `KeyE` produces '.'; AZERTY: physical `KeyM` produces ','
+    expect(matchesShortcuts(makeEvent({ key: '.', code: 'KeyE' }), 'E')).toBe(false);
+    expect(matchesShortcuts(makeEvent({ key: ',', code: 'KeyM' }), 'M')).toBe(false);
+    // IME composition
+    expect(matchesShortcuts(makeEvent({ key: 'Process', code: 'KeyS' }), 'S')).toBe(false);
+  });
+
+  it('should not fall back to the physical key for AltGr characters', () => {
+    const event = makeEvent({
+      key: 'ą',
+      code: 'KeyA',
+      ctrlKey: true,
+      altKey: true,
+      getModifierState: (/** @type {string} */ name) => name === 'AltGraph',
+    });
+
+    expect(matchesShortcuts(event, 'Ctrl+Alt+A')).toBe(false);
+  });
+
   it('should return false when Meta is required but not pressed', () => {
     expect(matchesShortcuts(makeEvent({ key: 's', code: 'KeyS', metaKey: false }), 'Meta+S')).toBe(
       false,

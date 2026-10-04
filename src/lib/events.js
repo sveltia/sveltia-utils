@@ -57,7 +57,9 @@ const PHYSICAL_TOKENS = new Set([
  * Determine whether a single (non-modifier) shortcut token matches a `KeyboardEvent`.
  *
  * Letters are compared against `event.key` (layout-aware: a Dvorak user pressing the physical
- * QWERTY-`S` key produces `key: 'o'`, which should match `Ctrl+O`, not `Ctrl+S`). Named keys,
+ * QWERTY-`S` key produces `key: 'o'`, which should match `Ctrl+O`, not `Ctrl+S`), falling back to
+ * `event.code` when `key` is a non-ASCII character or dead key (non-Latin layouts, `Alt+E` on
+ * macOS). Named keys,
  * function keys, and bare digits are compared against `event.code` (layout- and modifier-stable, so
  * `Shift+1` matches even though `event.key` becomes `'!'`). Other characters fall back to
  * `event.key`.
@@ -76,8 +78,24 @@ const tokenMatchesEvent = (token, event) => {
     return event.code === token;
   }
 
-  // Everything else (letters, punctuation): compare case-insensitively against `event.key` so
-  // the user's active keyboard layout is respected.
+  // Letter: prefer `event.key` so the user's active Latin layout (Dvorak, AZERTY, …) is respected.
+  // When `key` is a non-ASCII character or a dead key, the layout is non-Latin (`ы` on Russian) or
+  // Alt changed the character (`Alt+E` → `´` on macOS), so fall back to the physical `code`. ASCII
+  // punctuation (`.` on Dvorak’s `KeyE`), IME `Process` keys and AltGr characters (`ą` on Polish,
+  // reported as Ctrl+Alt on Windows) must not fall back, or ordinary typing would hit shortcuts.
+  if (/^[a-z]$/i.test(token)) {
+    const { key, code } = event;
+
+    const useCode =
+      (key === 'Dead' || (key.length === 1 && key.charCodeAt(0) > 0x7f)) &&
+      !event.getModifierState?.('AltGraph');
+
+    return useCode
+      ? code === `Key${token.toUpperCase()}`
+      : token.toLowerCase() === key.toLowerCase();
+  }
+
+  // Everything else (punctuation): compare case-insensitively against `event.key`.
   return token.toLowerCase() === event.key.toLowerCase();
 };
 
