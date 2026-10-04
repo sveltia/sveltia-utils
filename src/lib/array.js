@@ -6,7 +6,7 @@ import { isObject } from './object.js';
  * @returns {input is Record<string, any>[]} Result.
  */
 const isObjectArray = (input) =>
-  Array.isArray(input) && /** @type {any[]} */ (input).every((item) => isObject(item));
+  Array.isArray(input) && /** @type {any[]} */ (input).every(isObject);
 
 /**
  * Remove duplicate values from the given array.
