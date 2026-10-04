@@ -198,12 +198,20 @@ const scanFiles = async ({ items }, { accept } = {}) => {
 const readAsText = async (file) => (await file.text()).replace(/\r\n?/g, '\n');
 
 /**
+ * Wrap the given string in a plaintext `Blob`, or return the given file as is.
+ * @param {File | Blob | string} input Input file or string.
+ * @returns {Blob} Blob.
+ */
+const toBlob = (input) =>
+  typeof input === 'string' ? new Blob([input], { type: 'text/plain' }) : input;
+
+/**
  * Get the data URL of the given input.
  * @param {File | Blob | string} input Input file or string.
  * @returns {Promise<string>} Data URL like `data:text/plain;base64,...`.
  */
 const getDataURL = async (input) => {
-  const blob = typeof input === 'string' ? new Blob([input], { type: 'text/plain' }) : input;
+  const blob = toBlob(input);
   const reader = new FileReader();
 
   return new Promise((resolve, reject) => {
@@ -231,7 +239,7 @@ const getDataURL = async (input) => {
  * @returns {Promise<string>} Base64.
  */
 const encodeBase64 = async (input) => {
-  const blob = typeof input === 'string' ? new Blob([input], { type: 'text/plain' }) : input;
+  const blob = toBlob(input);
 
   // Encode the bytes directly rather than going through `getDataURL()`. The data URL route holds
   // the whole Base64 payload as a string and then allocates a second full-size copy when splitting
