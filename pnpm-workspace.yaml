@@ -1,7 +1,6 @@
 allowBuilds:
   "@parcel/watcher": false
   esbuild: false
-  svelte-preprocess: true
   unrs-resolver: false
 
 auditConfig:

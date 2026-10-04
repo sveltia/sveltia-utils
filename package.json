@@ -52,7 +52,6 @@
     "stylelint-scss": "^7.3.0",
     "svelte": "^5.57.1",
     "svelte-check": "^4.7.6",
-    "svelte-preprocess": "^6.0.5",
     "tslib": "^2.8.1",
     "vite": "^8.3.2",
     "vitest": "^5.0.3"
@@ -142,5 +141,9 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "imports": {
+    "#lib": "./src/lib/index.js",
+    "#lib/*": "./src/lib/*"
   }
 }
