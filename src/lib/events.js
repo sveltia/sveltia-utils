@@ -17,11 +17,11 @@ const isMac = () => {
   return _isMac;
 };
 
-const MODIFIER_KEYS = ['Ctrl', 'Meta', 'Alt', 'Shift'];
+const MODIFIER_KEYS = new Set(['Ctrl', 'Meta', 'Alt', 'Shift']);
 /**
  * `KeyboardEvent.key` values produced by the modifier keys themselves.
  */
-const MODIFIER_EVENT_KEYS = ['Control', 'Meta', 'Alt', 'Shift'];
+const MODIFIER_EVENT_KEYS = new Set(['Control', 'Meta', 'Alt', 'Shift']);
 
 /**
  * Shortcut tokens that correspond to a physical, layout- and modifier-stable `KeyboardEvent.code`
@@ -54,29 +54,34 @@ const PHYSICAL_TOKENS = new Set([
 ]);
 
 /**
- * Determine whether a single (non-modifier) shortcut token matches a `KeyboardEvent`.
+ * Create a function that determines whether a single (non-modifier) shortcut token matches a
+ * `KeyboardEvent`. The token is classified once here, at parse time, rather than on every
+ * keystroke.
  *
  * Letters are compared against `event.key` (layout-aware: a Dvorak user pressing the physical
  * QWERTY-`S` key produces `key: 'o'`, which should match `Ctrl+O`, not `Ctrl+S`), falling back to
  * `event.code` when `key` is a non-ASCII character or dead key (non-Latin layouts, `Alt+E` on
- * macOS). Named keys,
- * function keys, and bare digits are compared against `event.code` (layout- and modifier-stable, so
- * `Shift+1` matches even though `event.key` becomes `'!'`). Other characters fall back to
- * `event.key`.
+ * macOS). Named keys, function keys, and bare digits are compared against `event.code` (layout- and
+ * modifier-stable, so `Shift+1` matches even though `event.key` becomes `'!'`). Other characters
+ * fall back to `event.key`.
  * @param {string} token A single key token from a shortcut string, e.g. `S`, `Space`, `1`, `/`.
- * @param {KeyboardEvent} event The keyboard event.
- * @returns {boolean} Whether the token matches the event.
+ * @returns {(event: KeyboardEvent) => boolean} Function that checks whether the token matches the
+ * event.
  */
-const tokenMatchesEvent = (token, event) => {
+const createTokenMatcher = (token) => {
   // Bare digit: match the physical digit row regardless of Shift (`Shift+1` vs `!`).
   if (/^\d$/.test(token)) {
-    return event.code === `Digit${token}`;
+    const digitCode = `Digit${token}`;
+
+    return ({ code }) => code === digitCode;
   }
 
   // Named keys (Space, Enter, arrows, F-keys, …): match the stable `code`.
   if (PHYSICAL_TOKENS.has(token)) {
-    return event.code === token;
+    return ({ code }) => code === token;
   }
+
+  const lowerToken = token.toLowerCase();
 
   // Letter: prefer `event.key` so the user's active Latin layout (Dvorak, AZERTY, …) is respected.
   // When `key` is a non-ASCII character or a dead key, the layout is non-Latin (`ы` on Russian) or
@@ -84,19 +89,21 @@ const tokenMatchesEvent = (token, event) => {
   // punctuation (`.` on Dvorak’s `KeyE`), IME `Process` keys and AltGr characters (`ą` on Polish,
   // reported as Ctrl+Alt on Windows) must not fall back, or ordinary typing would hit shortcuts.
   if (/^[a-z]$/i.test(token)) {
-    const { key, code } = event;
+    const letterCode = `Key${token.toUpperCase()}`;
 
-    const useCode =
-      (key === 'Dead' || (key.length === 1 && key.charCodeAt(0) > 0x7f)) &&
-      !event.getModifierState?.('AltGraph');
+    return (event) => {
+      const { key, code } = event;
 
-    return useCode
-      ? code === `Key${token.toUpperCase()}`
-      : token.toLowerCase() === key.toLowerCase();
+      const useCode =
+        (key === 'Dead' || (key.length === 1 && key.charCodeAt(0) > 0x7f)) &&
+        !event.getModifierState?.('AltGraph');
+
+      return useCode ? code === letterCode : lowerToken === key.toLowerCase();
+    };
   }
 
   // Everything else (punctuation): compare case-insensitively against `event.key`.
-  return token.toLowerCase() === event.key.toLowerCase();
+  return ({ key }) => lowerToken === key.toLowerCase();
 };
 
 /**
@@ -106,7 +113,8 @@ const tokenMatchesEvent = (token, event) => {
  * @property {boolean} meta Whether Meta must be held.
  * @property {boolean} alt Whether Alt must be held.
  * @property {boolean} shift Whether Shift must be held.
- * @property {string[]} tokens Non-modifier key tokens, e.g. `['S']`.
+ * @property {((event: KeyboardEvent) => boolean)[]} matchers Matchers for the non-modifier key
+ * tokens, e.g. `S`. Empty for a modifier-only shortcut like `Shift`.
  */
 
 /**
@@ -117,7 +125,8 @@ const tokenMatchesEvent = (token, event) => {
 const resolveAccel = (shortcuts) => shortcuts.replace(/\bAccel\b/g, isMac() ? 'Meta' : 'Ctrl');
 /**
  * Cache of parsed shortcut strings. Shortcut matching runs on every keystroke, so the string
- * splitting and `Accel` substitution happen once per unique shortcut string rather than per event.
+ * splitting, `Accel` substitution and token classification happen once per unique shortcut string
+ * rather than per event.
  * Keyed by the raw (unresolved) string; {@link isMac} is stable for the lifetime of the module, so
  * the resolved result is stable too.
  * @type {Map<string, ParsedShortcut[]>}
@@ -146,7 +155,7 @@ const parseShortcuts = (shortcuts) => {
           meta: keys.includes('Meta'),
           alt: keys.includes('Alt'),
           shift: keys.includes('Shift'),
-          tokens: keys.filter((key) => !MODIFIER_KEYS.includes(key)),
+          matchers: keys.filter((key) => !MODIFIER_KEYS.has(key)).map(createTokenMatcher),
         };
       });
 
@@ -172,15 +181,15 @@ const matchesParsedShortcuts = (event, parsedShortcuts) => {
   }
 
   return parsedShortcuts.some(
-    ({ ctrl, meta, alt, shift, tokens }) =>
+    ({ ctrl, meta, alt, shift, matchers }) =>
       ctrl === ctrlKey &&
       meta === metaKey &&
       alt === altKey &&
       shift === shiftKey &&
       // A modifier-only shortcut like `Shift` must not match every key pressed with that modifier
-      (tokens.length
-        ? tokens.every((token) => tokenMatchesEvent(token, event))
-        : MODIFIER_EVENT_KEYS.includes(key)),
+      (matchers.length
+        ? matchers.every((matches) => matches(event))
+        : MODIFIER_EVENT_KEYS.has(key)),
   );
 };
 
@@ -190,7 +199,7 @@ const matchesParsedShortcuts = (event, parsedShortcuts) => {
  * Uses a hybrid of `KeyboardEvent.key` and `KeyboardEvent.code` so shortcuts work correctly on
  * non-QWERTY layouts (Dvorak, AZERTY, Colemak, …) *and* with modifiers like Shift or Alt that
  * otherwise change `event.key` (`Shift+1` → `'!'`, `Alt+E` on macOS → `'´'`, etc.). See
- * {@link tokenMatchesEvent} for the matching rules.
+ * {@link createTokenMatcher} for the matching rules.
  * @param {KeyboardEvent} event `keydown` or `keypress` event.
  * @param {string} shortcuts Keyboard shortcuts like `A`, `Ctrl+S`, `Accel+Space`, `Shift+1`.
  * @returns {boolean} Result.
@@ -272,9 +281,7 @@ const handleKeyDown = (event) => {
  * shortcuts.
  */
 const activateKeyShortcuts = (shortcuts = '') => {
-  const platformKeyShortcuts = shortcuts
-    ? resolveAccel(shortcuts).trim().replace(/\s+/g, ' ')
-    : undefined;
+  const platformKeyShortcuts = resolveAccel(shortcuts).trim().replace(/\s+/g, ' ');
 
   if (!platformKeyShortcuts) {
     // Return a no-op attachment so the return value always matches the `Attachment` shape (a
@@ -282,7 +289,8 @@ const activateKeyShortcuts = (shortcuts = '') => {
     return () => () => {};
   }
 
-  const parsedShortcuts = parseShortcuts(platformKeyShortcuts);
+  // Parse the raw string so the cache entry is shared with `matchesShortcuts()` calls
+  const parsedShortcuts = parseShortcuts(shortcuts);
 
   return (element) => {
     if (!shortcutTargets.size) {
