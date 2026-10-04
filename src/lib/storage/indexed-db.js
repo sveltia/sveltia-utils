@@ -306,6 +306,16 @@ export default class IndexedDB {
   }
 
   /**
+   * Get the given index of the store, or the store itself if no index is given.
+   * @param {IDBObjectStore} store Store.
+   * @param {string} [index] Index name.
+   * @returns {IDBObjectStore | IDBIndex} Store or index.
+   */
+  static #getSource(store, index) {
+    return index ? store.index(index) : store;
+  }
+
+  /**
    * Find a record using a cursor, stopping at the first match.
    * @param {object} args Arguments.
    * @param {(record: any) => boolean} [args.callback] A function to execute for each record.
@@ -322,7 +332,7 @@ export default class IndexedDB {
   }) {
     return new Promise((resolve, reject) => {
       this.#query((store) => {
-        const request = (index ? store.index(index) : store).openCursor(query, direction);
+        const request = IndexedDB.#getSource(store, index).openCursor(query, direction);
 
         request.onsuccess = () => {
           const cursor = request.result;
@@ -379,7 +389,7 @@ export default class IndexedDB {
     // Every record has to be visited anyway, so a single bulk read beats a cursor that costs one
     // event-loop round trip per record. The callback also runs after the transaction is released.
     /** @type {any[]} */
-    const values = await this.#query((store) => (index ? store.index(index) : store).getAll(query));
+    const values = await this.#query((store) => IndexedDB.#getSource(store, index).getAll(query));
 
     // Wrap the callback so it only receives the record, not `Array#filter`’s index/array arguments
     return typeof callback === 'function' ? values.filter((value) => callback(value)) : values;
