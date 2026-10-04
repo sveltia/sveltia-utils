@@ -28,7 +28,7 @@ const getFormatter = (timeZone) => {
   let formatter = formatterCache.get(key);
 
   if (!formatter) {
-    formatter = new Intl.DateTimeFormat('en-US', { ...partOptions, hour12: false, timeZone });
+    formatter = new Intl.DateTimeFormat('en-US', { ...partOptions, hourCycle: 'h23', timeZone });
     formatterCache.set(key, formatter);
   }
 
@@ -49,7 +49,7 @@ const getDateTimeParts = ({ date = new Date(), timeZone = undefined } = {}) =>
     getFormatter(timeZone)
       .formatToParts(date)
       .filter(({ type }) => type in partOptions)
-      .map(({ type, value }) => [type, type === 'hour' && value === '24' ? '00' : value]),
+      .map(({ type, value }) => [type, value]),
   );
 
 export { getDateTimeParts };

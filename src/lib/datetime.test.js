@@ -44,32 +44,10 @@ describe('Test getDateTimeParts()', () => {
     expect(result.second).toEqual('00');
   });
 
-  test('midnight UTC normalizes hour 24 to 00', () => {
-    // Some implementations may return '24' for midnight; ensure it's normalized to '00'
+  test('midnight is hour 00, not 24', () => {
     const date = new Date('2023-03-12T00:00:00Z');
     const result = getDateTimeParts({ date, timeZone: 'UTC' });
 
     expect(result.hour).toEqual('00');
-  });
-
-  test('normalizes hour 24 to 00 (edge case in some implementations)', () => {
-    const original = Intl.DateTimeFormat.prototype.formatToParts;
-
-    Intl.DateTimeFormat.prototype.formatToParts = /** @type {any} */ (
-      () => [
-        { type: 'year', value: '2023' },
-        { type: 'month', value: '01' },
-        { type: 'day', value: '01' },
-        { type: 'hour', value: '24' },
-        { type: 'minute', value: '00' },
-        { type: 'second', value: '00' },
-        { type: 'timeZoneName', value: 'GMT+00:00' },
-      ]
-    );
-
-    const result = getDateTimeParts({ timeZone: 'UTC' });
-
-    expect(result.hour).toEqual('00');
-    Intl.DateTimeFormat.prototype.formatToParts = original;
   });
 });
