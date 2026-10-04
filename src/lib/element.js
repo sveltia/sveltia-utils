@@ -1,7 +1,7 @@
 import { generateUUID } from './crypto.js';
 
-/** @type {WeakMap<HTMLElement, () => void> | undefined} */
-let visibilityResolvers;
+/** @type {WeakMap<HTMLElement, () => void>} */
+const visibilityResolvers = new WeakMap();
 /** @type {IntersectionObserver | undefined} */
 let sharedVisibilityObserver;
 /**
@@ -17,7 +17,7 @@ const generateElementId = (prefix = 'e', length = 7) => [prefix, generateUUID(le
  * @param {HTMLElement} element Element to remove the resolver for.
  */
 const removeVisibilityResolver = (element) => {
-  visibilityResolvers?.delete(element);
+  visibilityResolvers.delete(element);
   sharedVisibilityObserver?.unobserve(element);
 };
 
@@ -36,15 +36,13 @@ const getSharedVisibilityObserver = () => {
     return sharedVisibilityObserver;
   }
 
-  visibilityResolvers = new WeakMap();
-
   sharedVisibilityObserver = new IntersectionObserver((entries) => {
     entries.forEach(({ isIntersecting, target }) => {
       if (!isIntersecting || !(target instanceof HTMLElement)) {
         return;
       }
 
-      const resolve = visibilityResolvers?.get(target);
+      const resolve = visibilityResolvers.get(target);
 
       if (resolve) {
         resolve();
@@ -100,11 +98,11 @@ const waitForVisibility = (element) => {
   }
 
   return new Promise((resolve) => {
-    const previousResolve = visibilityResolvers?.get(element);
+    const previousResolve = visibilityResolvers.get(element);
 
     // Keep any pending resolver for the same element so that earlier callers are resolved too,
     // instead of being overwritten and left pending forever.
-    visibilityResolvers?.set(
+    visibilityResolvers.set(
       element,
       previousResolve
         ? () => {
@@ -117,7 +115,7 @@ const waitForVisibility = (element) => {
     scheduleVisibilityCheck(() => {
       // Don’t start observing if the resolver was removed in the meantime; nothing would ever
       // unobserve the element after that.
-      if (visibilityResolvers?.has(element)) {
+      if (visibilityResolvers.has(element)) {
         observer.observe(element);
       }
     });
