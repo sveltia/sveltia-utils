@@ -180,6 +180,13 @@ const matchesParsedShortcuts = (event, parsedShortcuts) => {
     return false;
   }
 
+  // A key pressed while composing text with an IME belongs to the IME, e.g. Escape to cancel a
+  // conversion or Enter to commit it. Safari fires that `keydown` right after `compositionend`,
+  // with `isComposing` already `false`, so only its `keyCode` of `229` gives it away
+  if (event.isComposing || event.keyCode === 229) {
+    return false;
+  }
+
   return parsedShortcuts.some(
     ({ ctrl, meta, alt, shift, matchers }) =>
       ctrl === ctrlKey &&
@@ -259,12 +266,62 @@ const activateElement = (element, event) => {
 };
 
 /**
+ * `<input>` types that don’t take typed text, where the Option key on macOS doesn’t produce a
+ * character.
+ */
+const NON_TEXT_INPUT_TYPES = new Set([
+  'button',
+  'checkbox',
+  'color',
+  'file',
+  'hidden',
+  'image',
+  'radio',
+  'range',
+  'reset',
+  'submit',
+]);
+
+/**
+ * Whether the given event target takes typed text: a text field, a `<textarea>` or an editable
+ * element.
+ * @param {EventTarget | null | undefined} target Event target.
+ * @returns {boolean} Result.
+ */
+const isTextEntryTarget = (target) =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLInputElement && !NON_TEXT_INPUT_TYPES.has(target.type)));
+
+/**
+ * Whether the `keydown` event is a text editing action rather than a shortcut. On macOS, the
+ * Option key held without Command or Control is a text editing modifier in a text field: it types
+ * a character, like `@` with Option+2 on Swedish, Finnish and Norwegian layouts, or `¡` and `™` on
+ * the US layout, and it moves the caret or deletes by word with the arrow keys and Backspace. A
+ * shortcut like `Alt+2` or `Alt+ArrowUp` must not take the key there.
+ * @param {KeyboardEvent} event `keydown` event.
+ * @returns {boolean} Result.
+ */
+const isTextEditingWithOption = (event) =>
+  isMac() &&
+  event.altKey &&
+  !event.ctrlKey &&
+  !event.metaKey &&
+  // `target` is the shadow host for an event from within a shadow tree, so take the original one
+  isTextEntryTarget(event.composedPath()[0]);
+
+/**
  * Shared `keydown` handler. The shortcut comparison runs first for every registered element because
  * it is pure string/boolean work; the layout-forcing geometry checks in {@link activateElement} are
  * reached only once a shortcut actually matches. This keeps ordinary typing free of reflows.
  * @param {KeyboardEvent} event `keydown` event.
  */
 const handleKeyDown = (event) => {
+  if (isTextEditingWithOption(event)) {
+    return;
+  }
+
   shortcutTargets.forEach((parsedShortcuts, element) => {
     if (matchesParsedShortcuts(event, parsedShortcuts)) {
       activateElement(element, event);

@@ -604,3 +604,170 @@ describe('activateKeyShortcuts - shared listener', () => {
     cleanup?.();
   });
 });
+
+describe('matchesShortcuts - IME composition', () => {
+  it('should not match a key pressed while composing text', () => {
+    expect(matchesShortcuts(makeEvent({ key: 'Escape', code: 'Escape' }), 'Escape')).toBe(true);
+    expect(
+      matchesShortcuts(makeEvent({ key: 'Escape', code: 'Escape', isComposing: true }), 'Escape'),
+    ).toBe(false);
+  });
+
+  it('should not match the key that ends a composition in Safari', () => {
+    // Safari fires the `keydown` after `compositionend`, with `isComposing` already `false`
+    expect(
+      matchesShortcuts(makeEvent({ key: 'Escape', code: 'Escape', keyCode: 229 }), 'Escape'),
+    ).toBe(false);
+  });
+});
+
+describe('activateKeyShortcuts - Option key on macOS', () => {
+  /** @type {PropertyDescriptor | undefined} */
+  let origDescriptor;
+  /** @type {typeof activateKeyShortcuts} */
+  let freshActivate;
+  /** @type {HTMLButtonElement} */
+  let button;
+  /** @type {(() => void) | undefined} */
+  let cleanup;
+  /** @type {import('vitest').Mock} */
+  let clickSpy;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    origDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { userAgentData: { platform: 'macOS' }, platform: 'MacIntel' },
+    });
+    ({ activateKeyShortcuts: freshActivate } = await import('./events.js'));
+
+    if (!document.elementsFromPoint) {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        writable: true,
+        value: () => /** @type {Element[]} */ ([]),
+      });
+    }
+
+    button = /** @type {HTMLButtonElement} */ (document.createElement('button'));
+    document.body.appendChild(button);
+    vi.spyOn(document, 'elementsFromPoint').mockReturnValue(/** @type {any} */ ([button]));
+    clickSpy = vi.fn();
+    button.addEventListener('click', clickSpy);
+    cleanup = /** @type {() => void} */ (freshActivate('Alt+2')(button));
+  });
+
+  afterEach(() => {
+    cleanup?.();
+    button.remove();
+    document.body.replaceChildren();
+    vi.restoreAllMocks();
+
+    if (origDescriptor) {
+      Object.defineProperty(globalThis, 'navigator', origDescriptor);
+    }
+  });
+
+  /**
+   * Press Option+2 with the given element focused.
+   * @param {HTMLElement} target Element the event is dispatched to.
+   * @param {Partial<KeyboardEventInit>} [init] Extra event properties.
+   */
+  const pressOption2 = (target, init = {}) => {
+    target.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: '@',
+        code: 'Digit2',
+        altKey: true,
+        bubbles: true,
+        composed: true,
+        ...init,
+      }),
+    );
+  };
+
+  it('should leave Option+key to a text field, where it types a character', () => {
+    const input = document.createElement('input');
+    const textarea = document.createElement('textarea');
+    const editable = document.createElement('div');
+
+    editable.contentEditable = 'true';
+    document.body.append(input, textarea, editable);
+
+    pressOption2(input);
+    pressOption2(textarea);
+    pressOption2(editable);
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
+  it('should take Option+key outside a text field', () => {
+    const checkbox = document.createElement('input');
+
+    checkbox.type = 'checkbox';
+    document.body.append(checkbox);
+
+    pressOption2(checkbox);
+    pressOption2(document.body);
+    expect(clickSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('should take Option+key with Control in a text field', () => {
+    const control = freshActivate('Ctrl+Alt+2')(button);
+    const input = document.createElement('input');
+
+    document.body.append(input);
+
+    pressOption2(input, { ctrlKey: true });
+    expect(clickSpy).toHaveBeenCalledOnce();
+    control?.();
+  });
+});
+
+describe('activateKeyShortcuts - Alt key on other platforms', () => {
+  it('should take Alt+key in a text field, where Alt is not a text editing modifier', async () => {
+    vi.resetModules();
+
+    const origDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { userAgentData: { platform: 'Windows' }, platform: 'Win32' },
+    });
+
+    try {
+      const { activateKeyShortcuts: freshActivate } = await import('./events.js');
+
+      if (!document.elementsFromPoint) {
+        Object.defineProperty(document, 'elementsFromPoint', {
+          configurable: true,
+          writable: true,
+          value: () => /** @type {Element[]} */ ([]),
+        });
+      }
+
+      const button = /** @type {HTMLButtonElement} */ (document.createElement('button'));
+      const input = document.createElement('input');
+      const clickSpy = vi.fn();
+
+      document.body.append(button, input);
+      vi.spyOn(document, 'elementsFromPoint').mockReturnValue(/** @type {any} */ ([button]));
+      button.addEventListener('click', clickSpy);
+
+      const cleanup = freshActivate('Alt+2')(button);
+
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: '2', code: 'Digit2', altKey: true, bubbles: true }),
+      );
+      expect(clickSpy).toHaveBeenCalledOnce();
+      cleanup?.();
+    } finally {
+      document.body.replaceChildren();
+      vi.restoreAllMocks();
+
+      if (origDescriptor) {
+        Object.defineProperty(globalThis, 'navigator', origDescriptor);
+      }
+    }
+  });
+});
