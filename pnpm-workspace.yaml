@@ -1,3 +1,5 @@
+# cSpell:ignore deepmerge gcqx
+
 allowBuilds:
   "@parcel/watcher": false
   esbuild: false
@@ -5,9 +7,9 @@ allowBuilds:
 
 auditConfig:
   ignoreGhsas:
-    # braces, used only in Stylelint
-    # https://github.com/advisories/GHSA-vfj7-8cjw-p6xm
-    - GHSA-vfj7-8cjw-p6xm
+    # deepmerge: low severity, unpatched
+    # https://github.com/advisories/GHSA-gcqx-w48m-w2h4
+    - GHSA-gcqx-w48m-w2h4
 
 engineStrict: true
 
