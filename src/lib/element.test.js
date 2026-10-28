@@ -355,3 +355,209 @@ describe('Test waitForVisibility()', () => {
     vi.unstubAllGlobals();
   });
 });
+
+/**
+ * Stub `IntersectionObserver` and record what each observer created is given.
+ * @returns {{ observers: { callback: IntersectionObserverCallback, options: any, observe: any,
+ * unobserve: any }[] }} Created observers.
+ */
+const stubIntersectionObserver = () => {
+  /** @type {any[]} */
+  const observers = [];
+
+  vi.stubGlobal(
+    'IntersectionObserver',
+    /** @type {any} */ (
+      function IntersectionObserverMock(
+        /** @type {IntersectionObserverCallback} */ callback,
+        /** @type {any} */ options,
+      ) {
+        const record = { callback, options, observe: vi.fn(), unobserve: vi.fn() };
+
+        observers.push(record);
+        /** @type {any} */
+        this.observe = record.observe;
+        /** @type {any} */
+        this.unobserve = record.unobserve;
+
+        this.disconnect = () => {};
+      }
+    ),
+  );
+
+  return { observers };
+};
+
+/**
+ * Report the given visibility of an element to an observer’s callback.
+ * @param {any} record Observer record.
+ * @param {Element} target Element.
+ * @param {boolean} isIntersecting Whether the element is visible.
+ */
+const report = (record, target, isIntersecting) => {
+  record.callback([{ target, isIntersecting }], /** @type {any} */ ({}));
+};
+
+describe('Test observeVisibility()', () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.unstubAllGlobals();
+  });
+
+  test('returns a no-op when IntersectionObserver is unavailable', async () => {
+    vi.resetModules();
+
+    const originalIntersectionObserver = globalThis.IntersectionObserver;
+
+    Reflect.deleteProperty(globalThis, 'IntersectionObserver');
+
+    try {
+      const { observeVisibility } = await loadModule();
+      const listener = vi.fn();
+
+      expect(() => observeVisibility(document.createElement('div'), listener)()).not.toThrow();
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      globalThis.IntersectionObserver = originalIntersectionObserver;
+    }
+  });
+
+  test('shares one observer per root margin and never reads the layout', async () => {
+    vi.resetModules();
+
+    const { observers } = stubIntersectionObserver();
+    const { observeVisibility } = await loadModule();
+    const first = document.createElement('div');
+    const second = document.createElement('div');
+    const rectSpy = vi.spyOn(first, 'getBoundingClientRect');
+
+    observeVisibility(first, () => {});
+    observeVisibility(second, () => {});
+    observeVisibility(first, () => {}, { rootMargin: '200px 0px' });
+
+    expect(observers).toHaveLength(2);
+    expect(observers[0].options).toEqual({ rootMargin: '0px' });
+    expect(observers[1].options).toEqual({ rootMargin: '200px 0px' });
+    expect(observers[0].observe).toHaveBeenCalledTimes(2);
+    expect(rectSpy).not.toHaveBeenCalled();
+  });
+
+  test('reports every change to every listener until it stops', async () => {
+    vi.resetModules();
+
+    const { observers } = stubIntersectionObserver();
+    const { observeVisibility } = await loadModule();
+    const element = document.createElement('div');
+    const other = document.createElement('div');
+    const first = vi.fn();
+    const second = vi.fn();
+    const stopFirst = observeVisibility(element, first);
+    const stopSecond = observeVisibility(element, second);
+    const [record] = observers;
+
+    // The element is observed once, however many listeners it has
+    expect(record.observe).toHaveBeenCalledOnce();
+
+    report(record, element, true);
+    report(record, element, false);
+    // An element nobody listens to is ignored
+    report(record, other, true);
+    expect(first.mock.calls).toEqual([[true], [false]]);
+    expect(second.mock.calls).toEqual([[true], [false]]);
+
+    stopFirst();
+    expect(record.unobserve).not.toHaveBeenCalled();
+    report(record, element, true);
+    expect(first).toHaveBeenCalledTimes(2);
+    expect(second).toHaveBeenCalledTimes(3);
+
+    stopSecond();
+    expect(record.unobserve).toHaveBeenCalledExactlyOnceWith(element);
+
+    // A stale stop function doesn’t unobserve the element observed again since
+    observeVisibility(element, () => {});
+    stopSecond();
+    expect(record.unobserve).toHaveBeenCalledOnce();
+  });
+});
+
+describe('Test whenSteadilyVisible()', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.resetModules();
+    vi.unstubAllGlobals();
+  });
+
+  test('calls back in a microtask when IntersectionObserver is unavailable', async () => {
+    vi.resetModules();
+
+    const originalIntersectionObserver = globalThis.IntersectionObserver;
+
+    Reflect.deleteProperty(globalThis, 'IntersectionObserver');
+
+    try {
+      const { whenSteadilyVisible } = await loadModule();
+      const callback = vi.fn();
+      const cancelled = vi.fn();
+
+      whenSteadilyVisible(document.createElement('div'), callback);
+      // Not before the function has returned, so the callback can use the cancel function
+      expect(callback).not.toHaveBeenCalled();
+      await Promise.resolve();
+      expect(callback).toHaveBeenCalledOnce();
+
+      whenSteadilyVisible(document.createElement('div'), cancelled)();
+      await Promise.resolve();
+      expect(cancelled).not.toHaveBeenCalled();
+    } finally {
+      globalThis.IntersectionObserver = originalIntersectionObserver;
+    }
+  });
+
+  test('calls back once the element has stayed visible, then stops observing', async () => {
+    vi.resetModules();
+    vi.useFakeTimers();
+
+    const { observers } = stubIntersectionObserver();
+    const { whenSteadilyVisible } = await loadModule();
+    const element = document.createElement('div');
+    const callback = vi.fn();
+
+    whenSteadilyVisible(element, callback, { delay: 50, rootMargin: '10px' });
+
+    const [record] = observers;
+
+    expect(record.options).toEqual({ rootMargin: '10px' });
+
+    // Passing through the viewport doesn’t count
+    report(record, element, true);
+    vi.advanceTimersByTime(40);
+    report(record, element, false);
+    vi.advanceTimersByTime(100);
+    expect(callback).not.toHaveBeenCalled();
+
+    report(record, element, true);
+    vi.advanceTimersByTime(50);
+    expect(callback).toHaveBeenCalledOnce();
+    expect(record.unobserve).toHaveBeenCalledWith(element);
+  });
+
+  test('waits 100 ms by default, and can be cancelled', async () => {
+    vi.resetModules();
+    vi.useFakeTimers();
+
+    const { observers } = stubIntersectionObserver();
+    const { whenSteadilyVisible } = await loadModule();
+    const element = document.createElement('div');
+    const callback = vi.fn();
+    const cancel = whenSteadilyVisible(element, callback);
+    const [record] = observers;
+
+    report(record, element, true);
+    vi.advanceTimersByTime(99);
+    cancel();
+    vi.advanceTimersByTime(100);
+    expect(callback).not.toHaveBeenCalled();
+    expect(record.unobserve).toHaveBeenCalledWith(element);
+  });
+});

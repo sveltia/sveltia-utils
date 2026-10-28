@@ -55,6 +55,152 @@ const getSharedVisibilityObserver = () => {
 };
 
 /**
+ * @typedef {object} VisibilityOptions
+ * @property {string} [rootMargin] Margin around the viewport within which an element counts as
+ * visible, in the syntax of the CSS `margin` property, e.g. `200px 0px` to start loading an image
+ * just before it scrolls into view. Defaults to `0px`.
+ */
+
+/**
+ * @typedef {object} SharedVisibilityObserver
+ * @property {IntersectionObserver} observer Observer.
+ * @property {Map<Element, Set<(visible: boolean) => void>>} listeners Functions to call when the
+ * visibility of an observed element changes.
+ */
+
+/**
+ * Observers shared by every element observed with the same root margin through
+ * {@link observeVisibility}, keyed by that margin.
+ * @type {Map<string, SharedVisibilityObserver>}
+ */
+const sharedVisibilityObservers = new Map();
+
+/**
+ * Create or reuse the observer shared by every element observed with the given root margin.
+ * @param {string} rootMargin Root margin.
+ * @returns {SharedVisibilityObserver | undefined} Shared observer, or `undefined` if
+ * `IntersectionObserver` is not available.
+ */
+const getMarginVisibilityObserver = (rootMargin) => {
+  if (!('IntersectionObserver' in globalThis)) {
+    return undefined;
+  }
+
+  let shared = sharedVisibilityObservers.get(rootMargin);
+
+  if (!shared) {
+    /** @type {SharedVisibilityObserver['listeners']} */
+    const listeners = new Map();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(({ isIntersecting, target }) => {
+          listeners.get(target)?.forEach((listener) => {
+            listener(isIntersecting);
+          });
+        });
+      },
+      { rootMargin },
+    );
+
+    shared = { observer, listeners };
+    sharedVisibilityObservers.set(rootMargin, shared);
+  }
+
+  return shared;
+};
+
+/**
+ * Observe whether the given element is in or near the viewport. Unlike a check with
+ * `getBoundingClientRect()`, this never forces a layout: the observer reports the element’s state
+ * asynchronously, first right after it’s observed, then whenever it changes. That matters in a long
+ * list, where a synchronous check for every row being rendered would lay out the page each time.
+ * The flip side is that, unlike with {@link waitForVisibility}, an element already in view is only
+ * reported once the next frame has been laid out.
+ * @param {Element} element Element to observe.
+ * @param {(visible: boolean) => void} listener Function called with whether the element is visible.
+ * @param {VisibilityOptions} [options] Options.
+ * @returns {() => void} Function to stop observing. If `IntersectionObserver` is not available,
+ * the listener is never called.
+ */
+const observeVisibility = (element, listener, { rootMargin = '0px' } = {}) => {
+  const shared = getMarginVisibilityObserver(rootMargin);
+
+  if (!shared) {
+    return () => {};
+  }
+
+  const { observer, listeners } = shared;
+  const elementListeners = listeners.get(element) ?? new Set();
+
+  if (!elementListeners.size) {
+    listeners.set(element, elementListeners);
+    observer.observe(element);
+  }
+
+  elementListeners.add(listener);
+
+  return () => {
+    elementListeners.delete(listener);
+
+    if (!elementListeners.size && listeners.get(element) === elementListeners) {
+      listeners.delete(element);
+      observer.unobserve(element);
+    }
+  };
+};
+
+/**
+ * Call a function once the given element has stayed in or near the viewport for a moment. An
+ * element that only passes through the viewport, as the rows do while a long list is scrolled
+ * quickly, doesn’t count, so the work it would start isn’t queued ahead of what the user stops at.
+ * @param {Element} element Element to observe.
+ * @param {() => void} callback Function to call. If `IntersectionObserver` is not available, it’s
+ * called in a microtask, so it’s never called before this function has returned.
+ * @param {VisibilityOptions & { delay?: number }} [options] Options. `delay` is how long the
+ * element has to stay visible, in milliseconds. Defaults to 100.
+ * @returns {() => void} Function to cancel the call if it hasn’t been made yet.
+ */
+const whenSteadilyVisible = (element, callback, { delay = 100, ...options } = {}) => {
+  if (!('IntersectionObserver' in globalThis)) {
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (!cancelled) {
+        callback();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }
+
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
+
+  const stop = observeVisibility(
+    element,
+    (visible) => {
+      clearTimeout(timer);
+
+      if (visible) {
+        timer = setTimeout(() => {
+          stop();
+          callback();
+        }, delay);
+      }
+    },
+    options,
+  );
+
+  return () => {
+    clearTimeout(timer);
+    stop();
+  };
+};
+
+/**
  * Check whether the element is already visible in the viewport.
  * @param {HTMLElement} element Element to check.
  * @returns {boolean} Whether the element is visible.
@@ -122,4 +268,11 @@ const waitForVisibility = (element) => {
   });
 };
 
-export { generateElementId, isVisible, removeVisibilityResolver, waitForVisibility };
+export {
+  generateElementId,
+  isVisible,
+  observeVisibility,
+  removeVisibilityResolver,
+  waitForVisibility,
+  whenSteadilyVisible,
+};
