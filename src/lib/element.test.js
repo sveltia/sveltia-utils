@@ -479,6 +479,93 @@ describe('Test observeVisibility()', () => {
     stopSecond();
     expect(record.unobserve).toHaveBeenCalledOnce();
   });
+
+  test('tells a listener added later the last state reported for the element', async () => {
+    vi.resetModules();
+
+    const { observers } = stubIntersectionObserver();
+    const { observeVisibility } = await loadModule();
+    const element = document.createElement('div');
+    const first = vi.fn();
+    const late = vi.fn();
+    const early = vi.fn();
+    const stopped = vi.fn();
+
+    observeVisibility(element, first);
+
+    const [record] = observers;
+
+    // Added before the first report, which it gets along with the others
+    observeVisibility(element, early);
+    await Promise.resolve();
+    expect(early).not.toHaveBeenCalled();
+    report(record, element, true);
+    expect(first.mock.calls).toEqual([[true]]);
+    expect(early.mock.calls).toEqual([[true]]);
+
+    // Added after it: told in a microtask, not before the function has returned
+    observeVisibility(element, late);
+    expect(late).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(late.mock.calls).toEqual([[true]]);
+
+    // Not told once it has stopped listening, and not told twice when added twice
+    observeVisibility(element, stopped)();
+    observeVisibility(element, late);
+    await Promise.resolve();
+    expect(stopped).not.toHaveBeenCalled();
+    expect(late).toHaveBeenCalledOnce();
+    expect(record.observe).toHaveBeenCalledOnce();
+  });
+
+  test('tells a listener added or removed during a report at most once', async () => {
+    vi.resetModules();
+
+    const { observers } = stubIntersectionObserver();
+    const { observeVisibility } = await loadModule();
+    const element = document.createElement('div');
+    const added = vi.fn();
+    const removed = vi.fn();
+    /** @type {() => void} */
+    let stopRemoved = () => {};
+
+    observeVisibility(element, () => {
+      // Subscribes another listener, and unsubscribes one, on being told
+      observeVisibility(element, added);
+      stopRemoved();
+    });
+    stopRemoved = observeVisibility(element, removed);
+
+    report(observers[0], element, true);
+    expect(added).not.toHaveBeenCalled();
+    expect(removed).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(added.mock.calls).toEqual([[true]]);
+  });
+
+  test('forgets the state of an element once it’s no longer observed', async () => {
+    vi.resetModules();
+
+    const { observers } = stubIntersectionObserver();
+    const { observeVisibility } = await loadModule();
+    const element = document.createElement('div');
+    const listener = vi.fn();
+    const stop = observeVisibility(element, () => {});
+    const [record] = observers;
+
+    report(record, element, true);
+    stop();
+
+    // A late entry for the unobserved element doesn’t count as its state
+    report(record, element, false);
+
+    // Observed again from scratch, so the observer’s own first report is waited for
+    observeVisibility(element, () => {});
+    observeVisibility(element, listener);
+    await Promise.resolve();
+    expect(listener).not.toHaveBeenCalled();
+    expect(record.observe).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('Test whenSteadilyVisible()', () => {

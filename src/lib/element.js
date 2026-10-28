@@ -66,6 +66,8 @@ const getSharedVisibilityObserver = () => {
  * @property {IntersectionObserver} observer Observer.
  * @property {Map<Element, Set<(visible: boolean) => void>>} listeners Functions to call when the
  * visibility of an observed element changes.
+ * @property {Map<Element, boolean>} states Whether each observed element was visible when the
+ * observer last reported it, so a listener added later is told without waiting for a change.
  */
 
 /**
@@ -91,19 +93,32 @@ const getMarginVisibilityObserver = (rootMargin) => {
   if (!shared) {
     /** @type {SharedVisibilityObserver['listeners']} */
     const listeners = new Map();
+    /** @type {SharedVisibilityObserver['states']} */
+    const states = new Map();
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach(({ isIntersecting, target }) => {
-          listeners.get(target)?.forEach((listener) => {
-            listener(isIntersecting);
-          });
+          const elementListeners = listeners.get(target);
+
+          // A late entry for an element that is no longer observed is ignored
+          if (elementListeners) {
+            states.set(target, isIntersecting);
+
+            // Go through a copy, as a listener can add or remove others. One added on the way is
+            // told in a microtask instead, and one removed on the way isn’t told at all
+            [...elementListeners].forEach((listener) => {
+              if (elementListeners.has(listener)) {
+                listener(isIntersecting);
+              }
+            });
+          }
         });
       },
       { rootMargin },
     );
 
-    shared = { observer, listeners };
+    shared = { observer, listeners, states };
     sharedVisibilityObservers.set(rootMargin, shared);
   }
 
@@ -116,7 +131,9 @@ const getMarginVisibilityObserver = (rootMargin) => {
  * asynchronously, first right after it’s observed, then whenever it changes. That matters in a long
  * list, where a synchronous check for every row being rendered would lay out the page each time.
  * The flip side is that, unlike with {@link waitForVisibility}, an element already in view is only
- * reported once the next frame has been laid out.
+ * reported once the next frame has been laid out. A listener added to an element that is observed
+ * already is told the last reported state in a microtask, as the observer itself won’t report it
+ * again until it changes.
  * @param {Element} element Element to observe.
  * @param {(visible: boolean) => void} listener Function called with whether the element is visible.
  * @param {VisibilityOptions} [options] Options.
@@ -130,12 +147,21 @@ const observeVisibility = (element, listener, { rootMargin = '0px' } = {}) => {
     return () => {};
   }
 
-  const { observer, listeners } = shared;
+  const { observer, listeners, states } = shared;
   const elementListeners = listeners.get(element) ?? new Set();
 
   if (!elementListeners.size) {
     listeners.set(element, elementListeners);
     observer.observe(element);
+  } else if (states.has(element) && !elementListeners.has(listener)) {
+    // The element is observed already, and its state has been reported, which the observer won’t
+    // do again until it changes. Tell the new listener in a microtask, like the observer, rather
+    // than before this function has returned
+    queueMicrotask(() => {
+      if (elementListeners.has(listener) && listeners.get(element) === elementListeners) {
+        listener(/** @type {boolean} */ (states.get(element)));
+      }
+    });
   }
 
   elementListeners.add(listener);
@@ -145,6 +171,7 @@ const observeVisibility = (element, listener, { rootMargin = '0px' } = {}) => {
 
     if (!elementListeners.size && listeners.get(element) === elementListeners) {
       listeners.delete(element);
+      states.delete(element);
       observer.unobserve(element);
     }
   };
