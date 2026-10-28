@@ -168,10 +168,33 @@ describe('Test getPathInfo()', () => {
   test('empty string', () => {
     expect(getPathInfo('')).toEqual({
       dirname: undefined,
-      basename: undefined,
-      filename: undefined,
+      basename: '',
+      filename: '',
       extension: undefined,
     });
+    expect(getPathInfo('/')).toEqual({
+      dirname: undefined,
+      basename: '',
+      filename: '',
+      extension: undefined,
+    });
+  });
+
+  test('trailing slashes', () => {
+    expect(getPathInfo('path/to/dir/')).toEqual({
+      dirname: 'path/to',
+      basename: 'dir',
+      filename: 'dir',
+      extension: undefined,
+    });
+    expect(getPathInfo('path/to/image.jpg//')).toEqual({
+      dirname: 'path/to',
+      basename: 'image.jpg',
+      filename: 'image',
+      extension: 'jpg',
+    });
+    // Inner slashes are left alone
+    expect(getPathInfo('path//to/image.jpg').basename).toBe('image.jpg');
   });
 
   test('no extension', () => {
@@ -530,6 +553,40 @@ describe('Test saveFile()', () => {
 
     saveFile(new Blob(['<svg/>'], { type: 'image/svg+xml' }));
     expect(link.download).toMatch(/^\d+\.svg$/);
+  });
+
+  test('saves a Blob without a name using the usual extension for its type', () => {
+    const link = { click: vi.fn(), href: '', download: '' };
+
+    vi.spyOn(document, 'createElement').mockReturnValue(/** @type {any} */ (link));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock5');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    saveFile(new Blob(['data'], { type: 'text/plain;charset=utf-8' }));
+    expect(link.download).toMatch(/^\d+\.txt$/);
+
+    saveFile(new Blob(['data'], { type: 'text/markdown' }));
+    expect(link.download).toMatch(/^\d+\.md$/);
+
+    saveFile(new Blob(['data'], { type: 'text/javascript' }));
+    expect(link.download).toMatch(/^\d+\.js$/);
+
+    saveFile(new Blob(['data'], { type: 'audio/mpeg' }));
+    expect(link.download).toMatch(/^\d+\.mp3$/);
+
+    saveFile(new Blob(['data'], { type: 'application/ld+json' }));
+    expect(link.download).toMatch(/^\d+\.jsonld$/);
+
+    // A subtype named like an `Object.prototype` member is not looked up there
+    saveFile(new Blob(['data'], { type: 'application/constructor' }));
+    expect(link.download).toMatch(/^\d+\.constructor$/);
+
+    // Types that don’t suggest an extension get none
+    saveFile(new Blob(['data'], { type: 'application/octet-stream' }));
+    expect(link.download).toMatch(/^\d+$/);
+
+    saveFile(new Blob(['data'], { type: 'application/vnd.ms-excel' }));
+    expect(link.download).toMatch(/^\d+$/);
   });
 });
 

@@ -61,9 +61,10 @@ const PHYSICAL_TOKENS = new Set([
  * Letters are compared against `event.key` (layout-aware: a Dvorak user pressing the physical
  * QWERTY-`S` key produces `key: 'o'`, which should match `Ctrl+O`, not `Ctrl+S`), falling back to
  * `event.code` when `key` is a non-ASCII character or dead key (non-Latin layouts, `Alt+E` on
- * macOS). Named keys, function keys, and bare digits are compared against `event.code` (layout- and
- * modifier-stable, so `Shift+1` matches even though `event.key` becomes `'!'`). Other characters
- * fall back to `event.key`.
+ * macOS). Bare digits are compared against `event.code` (layout- and modifier-stable, so `Shift+1`
+ * matches even though `event.key` becomes `'!'`). Named keys and function keys are compared against
+ * either, so their numeric keypad equivalents match too. Other characters fall back to
+ * `event.key`.
  * @param {string} token A single key token from a shortcut string, e.g. `S`, `Space`, `1`, `/`.
  * @returns {(event: KeyboardEvent) => boolean} Function that checks whether the token matches the
  * event.
@@ -76,9 +77,13 @@ const createTokenMatcher = (token) => {
     return ({ code }) => code === digitCode;
   }
 
-  // Named keys (Space, Enter, arrows, F-keys, …): match the stable `code`.
+  // Named keys (Space, Enter, arrows, F-keys, …): match the stable `code`, or `key`, which
+  // modifiers don’t change for these. The numeric keypad has its own `code` values, e.g.
+  // `NumpadEnter` for Enter, and `Numpad8` for ArrowUp with NumLock off, so only `key` matches.
   if (PHYSICAL_TOKENS.has(token)) {
-    return ({ code }) => code === token;
+    const namedKey = token === 'Space' ? ' ' : token;
+
+    return ({ key, code }) => code === token || key === namedKey;
   }
 
   const lowerToken = token.toLowerCase();
@@ -148,7 +153,8 @@ const parseShortcuts = (shortcuts) => {
       .split(/\s+/)
       .filter(Boolean)
       .map((shortcut) => {
-        const keys = shortcut.split('+');
+        // Accept `Control`, as written in `aria-keyshortcuts`, as an alias of `Ctrl`
+        const keys = shortcut.split('+').map((key) => (key === 'Control' ? 'Ctrl' : key));
 
         return {
           ctrl: keys.includes('Ctrl'),
@@ -218,9 +224,17 @@ const matchesShortcuts = (event, shortcuts) =>
   matchesParsedShortcuts(event, parseShortcuts(shortcuts));
 
 /**
- * Elements with active shortcuts, mapped to their pre-parsed shortcuts. A single shared `keydown`
- * listener serves every registered element, instead of adding one global listener per element.
- * @type {Map<HTMLInputElement | HTMLButtonElement, ParsedShortcut[]>}
+ * Shortcuts registered by a single attachment.
+ * @typedef {object} ShortcutRegistration
+ * @property {ParsedShortcut[]} parsedShortcuts Pre-parsed shortcuts.
+ * @property {string} label Shortcuts in the `aria-keyshortcuts` syntax.
+ */
+
+/**
+ * Elements with active shortcuts, mapped to the registrations of every attachment on them, as an
+ * element can have more than one. A single shared `keydown` listener serves every registered
+ * element, instead of adding one global listener per element.
+ * @type {Map<HTMLInputElement | HTMLButtonElement, ShortcutRegistration[]>}
  */
 const shortcutTargets = new Map();
 
@@ -322,11 +336,34 @@ const handleKeyDown = (event) => {
     return;
   }
 
-  shortcutTargets.forEach((parsedShortcuts, element) => {
-    if (matchesParsedShortcuts(event, parsedShortcuts)) {
+  // Go through a copy, as `Map#forEach` would also visit an element registered by another one’s
+  // click handler, activating it with the same key press
+  [...shortcutTargets.keys()].forEach((element) => {
+    // Skip an element unregistered on the way
+    const registrations = shortcutTargets.get(element);
+
+    if (
+      registrations?.some(({ parsedShortcuts }) => matchesParsedShortcuts(event, parsedShortcuts))
+    ) {
       activateElement(element, event);
     }
   });
+};
+
+/**
+ * Set or remove the `aria-keyshortcuts` attribute to reflect every registration on the element.
+ * @param {HTMLInputElement | HTMLButtonElement} element Registered element.
+ * @param {ShortcutRegistration[]} registrations Registrations on the element.
+ */
+const updateShortcutsAttribute = (element, registrations) => {
+  if (registrations.length) {
+    element.setAttribute(
+      'aria-keyshortcuts',
+      [...new Set(registrations.flatMap(({ label }) => label.split(' ')))].join(' '),
+    );
+  } else {
+    element.removeAttribute('aria-keyshortcuts');
+  }
 };
 
 /**
@@ -338,9 +375,13 @@ const handleKeyDown = (event) => {
  * shortcuts.
  */
 const activateKeyShortcuts = (shortcuts = '') => {
-  const platformKeyShortcuts = resolveAccel(shortcuts).trim().replace(/\s+/g, ' ');
+  // ARIA takes modifier names from `KeyboardEvent.key` values, where Ctrl is `Control`
+  const label = resolveAccel(shortcuts)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\bCtrl\b/g, 'Control');
 
-  if (!platformKeyShortcuts) {
+  if (!label) {
     // Return a no-op attachment so the return value always matches the `Attachment` shape (a
     // function that takes an element and returns a cleanup function).
     return () => () => {};
@@ -354,12 +395,29 @@ const activateKeyShortcuts = (shortcuts = '') => {
       globalThis.addEventListener('keydown', handleKeyDown, { capture: true });
     }
 
-    shortcutTargets.set(element, parsedShortcuts);
-    element.setAttribute('aria-keyshortcuts', platformKeyShortcuts);
+    // A new object per attachment, so the cleanup removes only its own registration
+    /** @type {ShortcutRegistration} */
+    const registration = { parsedShortcuts, label };
+    const registrations = shortcutTargets.get(element) ?? [];
+
+    registrations.push(registration);
+    shortcutTargets.set(element, registrations);
+    updateShortcutsAttribute(element, registrations);
 
     return () => {
-      shortcutTargets.delete(element);
-      element.removeAttribute('aria-keyshortcuts');
+      const index = registrations.indexOf(registration);
+
+      // Run only once
+      if (index === -1) {
+        return;
+      }
+
+      registrations.splice(index, 1);
+      updateShortcutsAttribute(element, registrations);
+
+      if (!registrations.length) {
+        shortcutTargets.delete(element);
+      }
 
       if (!shortcutTargets.size) {
         globalThis.removeEventListener('keydown', handleKeyDown, { capture: true });

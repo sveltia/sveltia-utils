@@ -97,6 +97,23 @@ describe('matchesShortcuts', () => {
     ).toBe(true);
   });
 
+  it('should accept Control as an alias of Ctrl', () => {
+    expect(
+      matchesShortcuts(makeEvent({ key: 's', code: 'KeyS', ctrlKey: true }), 'Control+S'),
+    ).toBe(true);
+    expect(matchesShortcuts(makeEvent({ key: 's', code: 'KeyS' }), 'Control+S')).toBe(false);
+  });
+
+  it('should match named keys on the numeric keypad via event.key', () => {
+    expect(matchesShortcuts(makeEvent({ key: 'Enter', code: 'NumpadEnter' }), 'Enter')).toBe(true);
+    expect(matchesShortcuts(makeEvent({ key: 'ArrowUp', code: 'Numpad8' }), 'ArrowUp')).toBe(true);
+    expect(matchesShortcuts(makeEvent({ key: 'Delete', code: 'NumpadDecimal' }), 'Delete')).toBe(
+      true,
+    );
+    // A digit on the keypad, with NumLock on, is not a named key
+    expect(matchesShortcuts(makeEvent({ key: '8', code: 'Numpad8' }), 'ArrowUp')).toBe(false);
+  });
+
   it('should match literal punctuation characters via event.key', () => {
     expect(matchesShortcuts(makeEvent({ key: '/', code: 'Slash', ctrlKey: true }), 'Ctrl+/')).toBe(
       true,
@@ -281,7 +298,7 @@ describe('activateKeyShortcuts', () => {
   it('should set aria-keyshortcuts when shortcuts are provided', () => {
     const cleanup = activateKeyShortcuts('Ctrl+S')(button);
 
-    expect(button.getAttribute('aria-keyshortcuts')).toBe('Ctrl+S');
+    expect(button.getAttribute('aria-keyshortcuts')).toBe('Control+S');
     cleanup?.();
   });
 
@@ -303,7 +320,7 @@ describe('activateKeyShortcuts', () => {
     const cleanup = activateKeyShortcuts('Accel+S')(button);
     const attr = button.getAttribute('aria-keyshortcuts');
 
-    expect(attr === 'Meta+S' || attr === 'Ctrl+S').toBe(true);
+    expect(attr === 'Meta+S' || attr === 'Control+S').toBe(true);
     cleanup?.();
   });
 
@@ -479,6 +496,67 @@ describe('activateKeyShortcuts - shared listener', () => {
     buttons.forEach((btn) => btn.remove());
     buttons = [];
     vi.restoreAllMocks();
+  });
+
+  it('should not activate an element registered while handling the same key press', () => {
+    const opener = makeButton();
+    const closer = makeButton();
+
+    vi.spyOn(document, 'elementsFromPoint').mockImplementation(
+      () => /** @type {any} */ ([opener, closer]),
+    );
+
+    const closeSpy = vi.fn();
+    /** @type {((() => void) | void)[]} */
+    const cleanups = [];
+
+    closer.addEventListener('click', closeSpy);
+    opener.addEventListener('click', () => {
+      cleanups.push(activateKeyShortcuts('Escape')(closer));
+    });
+
+    const cleanupOpener = activateKeyShortcuts('Escape')(opener);
+
+    press({ key: 'Escape', code: 'Escape' });
+    expect(closeSpy).not.toHaveBeenCalled();
+
+    cleanupOpener?.();
+    press({ key: 'Escape', code: 'Escape' });
+    expect(closeSpy).toHaveBeenCalledOnce();
+    cleanups.forEach((cleanup) => cleanup?.());
+  });
+
+  it('should keep every attachment on the same element working until its own cleanup', () => {
+    const button = makeButton();
+
+    vi.spyOn(document, 'elementsFromPoint').mockImplementation(() => /** @type {any} */ ([button]));
+
+    const clickSpy = vi.fn();
+
+    button.addEventListener('click', clickSpy);
+
+    const cleanupSave = activateKeyShortcuts('Ctrl+S')(button);
+    const cleanupFind = activateKeyShortcuts('Ctrl+F Ctrl+S')(button);
+
+    expect(button.getAttribute('aria-keyshortcuts')).toBe('Control+S Control+F');
+
+    // A key both attachments handle activates the element once
+    press({ key: 's', code: 'KeyS', ctrlKey: true });
+    expect(clickSpy).toHaveBeenCalledOnce();
+
+    cleanupSave?.();
+    // Calling a cleanup again must not remove the other attachment’s registration
+    cleanupSave?.();
+    expect(button.getAttribute('aria-keyshortcuts')).toBe('Control+F Control+S');
+
+    press({ key: 'f', code: 'KeyF', ctrlKey: true });
+    expect(clickSpy).toHaveBeenCalledTimes(2);
+
+    cleanupFind?.();
+    expect(button.getAttribute('aria-keyshortcuts')).toBeNull();
+
+    press({ key: 'f', code: 'KeyF', ctrlKey: true });
+    expect(clickSpy).toHaveBeenCalledTimes(2);
   });
 
   it('should dispatch to the correct element when several are registered', () => {

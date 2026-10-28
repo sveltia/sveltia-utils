@@ -44,13 +44,23 @@ const textFileTypes = [
 const isTextFileType = (type) => type.startsWith('text/') || textFileTypes.includes(type);
 
 /**
- * Get information about a file path.
+ * Get information about a file path. If the path has no file name, like an empty string, `basename`
+ * and `filename` are empty strings.
  * @param {string} path Path to be parsed.
  * @returns {{ dirname?: string, basename: string, filename: string, extension?: string }} Result.
  * @see https://www.php.net/manual/en/function.pathinfo.php
  */
 const getPathInfo = (path) => {
-  const [, dirname, basename, filename, extension] = path.match(filePathRegEx) ?? [];
+  let end = path.length;
+
+  // Like PHP, ignore trailing slashes, so `foo/bar/` gives `bar` rather than nothing at all. Scan
+  // instead of using `/\/+$/`, which backtracks quadratically over a long run of inner slashes
+  while (path[end - 1] === '/') {
+    end -= 1;
+  }
+
+  const [, dirname, basename = '', filename = '', extension] =
+    path.slice(0, end).match(filePathRegEx) ?? [];
 
   return { dirname, basename, filename, extension };
 };
@@ -269,6 +279,47 @@ const decodeBase64 = async (base64) => {
 };
 
 /**
+ * File extensions for MIME types whose subtype isn’t their usual extension.
+ * @type {Map<string, string>}
+ */
+const typeExtensions = new Map([
+  ['application/gzip', 'gz'],
+  ['application/javascript', 'js'],
+  ['application/ld+json', 'jsonld'],
+  ['audio/mpeg', 'mp3'],
+  ['text/javascript', 'js'],
+  ['text/markdown', 'md'],
+  ['text/plain', 'txt'],
+  ['video/quicktime', 'mov'],
+]);
+
+/**
+ * Get a file extension for the given MIME type, to name a file that has no name.
+ * @param {string} type MIME type, e.g. `image/svg+xml`. Can be empty.
+ * @returns {string | undefined} Extension, e.g. `svg`, or `undefined` if the type doesn’t suggest
+ * one, like the generic `application/octet-stream`, or vendor-specific and experimental types such
+ * as `application/vnd.ms-excel` and `application/x-tar`.
+ */
+const getExtensionForType = (type) => {
+  // A type may carry parameters like `text/plain;charset=utf-8`
+  const essence = type.toLowerCase().split(';')[0].trim();
+  const mapped = typeExtensions.get(essence);
+
+  if (mapped) {
+    return mapped;
+  }
+
+  // A subtype may carry a suffix like `svg+xml`
+  const subtype = essence.split('/')[1]?.split('+')[0];
+
+  if (!subtype || /[.-]/.test(subtype)) {
+    return undefined;
+  }
+
+  return subtype;
+};
+
+/**
  * Save the given file locally.
  * @param {File | Blob} file File to be saved.
  * @param {string} [name] File name. Required if the `file` param is a `Blob`.
@@ -276,8 +327,8 @@ const decodeBase64 = async (base64) => {
 const saveFile = (file, name) => {
   const link = document.createElement('a');
   const blobURL = URL.createObjectURL(file);
-  // A `Blob` may have an empty `type`, and a subtype may carry a suffix like `svg+xml`
-  const extension = file.type.split('/')[1]?.split(/[+;]/)[0];
+  // A `Blob` may have an empty `type`
+  const extension = getExtensionForType(file.type);
 
   link.download =
     name || /** @type {File} */ (file).name || [Date.now(), extension].filter(Boolean).join('.');
