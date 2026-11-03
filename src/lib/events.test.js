@@ -457,6 +457,42 @@ describe('activateKeyShortcuts - Accel on macOS', () => {
   });
 });
 
+describe('matchesShortcuts on macOS', () => {
+  it('should fall back to the physical key when Option, reported as AltGraph, changes the letter', async () => {
+    vi.resetModules();
+
+    // Stub navigator.platform to look like macOS so isMac() returns true in a fresh module
+    const origDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        userAgentData: { platform: 'macOS' },
+        platform: 'MacIntel',
+      },
+    });
+
+    try {
+      const { matchesShortcuts: freshMatches } = await import('./events.js');
+
+      const event = makeEvent({
+        key: '√',
+        code: 'KeyV',
+        metaKey: true,
+        altKey: true,
+        getModifierState: (/** @type {string} */ name) => name === 'AltGraph',
+      });
+
+      expect(freshMatches(event, 'Meta+Alt+V')).toBe(true);
+      expect(freshMatches(event, 'Meta+Alt+C')).toBe(false);
+    } finally {
+      if (origDescriptor) {
+        Object.defineProperty(globalThis, 'navigator', origDescriptor);
+      }
+    }
+  });
+});
+
 describe('activateKeyShortcuts - shared listener', () => {
   /** @type {HTMLButtonElement[]} */
   let buttons = [];

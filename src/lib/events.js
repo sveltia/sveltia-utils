@@ -93,6 +93,8 @@ const createTokenMatcher = (token) => {
   // Alt changed the character (`Alt+E` → `´` on macOS), so fall back to the physical `code`. ASCII
   // punctuation (`.` on Dvorak’s `KeyE`), IME `Process` keys and AltGr characters (`ą` on Polish,
   // reported as Ctrl+Alt on Windows) must not fall back, or ordinary typing would hit shortcuts.
+  // macOS has no AltGr key, but browsers report Option as AltGraph there, so it’s only checked on
+  // other platforms; otherwise `Alt+E` or `Meta+Alt+V` would never match.
   if (/^[a-z]$/i.test(token)) {
     const letterCode = `Key${token.toUpperCase()}`;
 
@@ -101,7 +103,7 @@ const createTokenMatcher = (token) => {
 
       const useCode =
         (key === 'Dead' || (key.length === 1 && key.charCodeAt(0) > 0x7f)) &&
-        !event.getModifierState?.('AltGraph');
+        (isMac() || !event.getModifierState?.('AltGraph'));
 
       return useCode ? code === letterCode : lowerToken === key.toLowerCase();
     };
